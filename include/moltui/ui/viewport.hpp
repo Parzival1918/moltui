@@ -20,6 +20,7 @@ class MolViewport : public ftxui::ComponentBase {
 public:
     using AtomPickCallback = std::function<void(int atom_id)>;
     using FrameRenderHook = std::function<void()>;
+    using InteractionHook = std::function<void()>;
 
     MolViewport(
         core::Structure& structure,
@@ -27,7 +28,8 @@ public:
         render::Rasterizer& rasterizer,
         AtomPickCallback on_pick = nullptr,
         render::TerminalGraphicsMode graphics_mode = render::TerminalGraphicsMode::HalfBlockAnsi,
-        FrameRenderHook on_frame_rendered = nullptr
+        FrameRenderHook on_frame_rendered = nullptr,
+        InteractionHook on_interaction = nullptr
     );
 
     ftxui::Element OnRender() override;
@@ -37,6 +39,11 @@ public:
 
     render::TerminalGraphicsMode graphics_mode() const { return graphics_mode_; }
     void mark_scene_dirty() { scene_dirty_ = true; }
+    void request_refit() { needs_initial_fit_ = true; scene_dirty_ = true; }
+    void set_adaptive_quality(bool enabled);
+    bool adaptive_quality() const { return adaptive_quality_; }
+    void set_draft_mode(bool draft);
+    bool draft_mode() const { return draft_mode_; }
     bool consume_viewport_drawn();
     bool consume_kitty_image_dirty();
     void clear_kitty_pending();
@@ -52,6 +59,7 @@ private:
     AtomPickCallback on_pick_;
     render::TerminalGraphicsMode graphics_mode_;
     FrameRenderHook on_frame_rendered_;
+    InteractionHook on_interaction_;
 
     render::Framebuffer fb_;
     ftxui::Box box_;
@@ -62,6 +70,9 @@ private:
     int render_width_{80};
     int render_height_{40};
     bool scene_dirty_{true};
+    bool needs_initial_fit_{true};
+    bool adaptive_quality_{true};
+    bool draft_mode_{false};
     bool viewport_drawn_{false};
     bool kitty_image_dirty_{true};
 };

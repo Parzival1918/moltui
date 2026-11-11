@@ -1,0 +1,353 @@
+data_acetic_acid-QR-14-67-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 67
+_klasp_stage 2
+_cell_length_a 6.535518
+_cell_length_b 5.059040
+_cell_length_c 10.675642
+_cell_angle_alpha 90.0000
+_cell_angle_beta 58.3699
+_cell_angle_gamma 90.0000
+_cell_volume 300.5397
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.3272
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -58.991918
+_ccdc_csp_density_calc 1.32719
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -58.9919
+_ccdc_csp_classification_energy_lattice_relative 0.0000
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.18283793 0.86994225 0.29911380
+C2_1 C 0.32616234 0.76442838 0.14754991
+H3_1 H 0.11031173 1.18919128 0.41000019
+H4_1 H 0.30478479 0.55171211 0.15200620
+H5_1 H 0.26360657 0.83794787 0.07813474
+H6_1 H 0.51573878 0.80846713 0.09622564
+O7_1 O 0.20772413 1.12641333 0.30790727
+O8_1 O 0.04988977 0.73655483 0.40697720
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'
+
+data_acetic_acid-QR-14-89-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 89
+_klasp_stage 2
+_cell_length_a 6.478163
+_cell_length_b 4.872037
+_cell_length_c 10.042410
+_cell_angle_alpha 90.0000
+_cell_angle_beta 75.0747
+_cell_angle_gamma 90.0000
+_cell_volume 306.2637
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.3024
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -58.374847
+_ccdc_csp_density_calc 1.30239
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -58.3748
+_ccdc_csp_classification_energy_lattice_relative 0.6171
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.82704057 0.12814913 0.38172002
+C2_1 C 0.69098152 0.23379980 0.29522478
+H3_1 H 0.87965041 -0.19145792 0.47802704
+H4_1 H 0.72724450 0.44901901 0.27446567
+H5_1 H 0.72374426 0.13201070 0.19613504
+H6_1 H 0.52231185 0.21517522 0.34549914
+O7_1 O 0.78658896 -0.12864323 0.42077038
+O8_1 O 0.96684064 0.26105596 0.41319766
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'
+
+data_acetic_acid-QR-14-75-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 75
+_klasp_stage 2
+_cell_length_a 4.059134
+_cell_length_b 13.760767
+_cell_length_c 5.574831
+_cell_angle_alpha 90.0000
+_cell_angle_beta 85.5725
+_cell_angle_gamma 90.0000
+_cell_volume 310.4630
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.2848
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -58.047763
+_ccdc_csp_density_calc 1.28477
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -58.0478
+_ccdc_csp_classification_energy_lattice_relative 0.9442
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.63028327 0.08434742 0.75097661
+C2_1 C 0.72954252 0.15086157 0.94120737
+H3_1 H 0.36484954 0.07751078 0.48322881
+H4_1 H 0.88237940 0.11093582 1.05798265
+H5_1 H 0.87811032 0.21076792 0.86784887
+H6_1 H 0.51896177 0.17959800 1.04968061
+O7_1 O 0.42543245 0.12376183 0.60680297
+O8_1 O 0.73000931 0.00116697 0.72427754
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'
+
+data_acetic_acid-QR-14-111-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 111
+_klasp_stage 2
+_cell_length_a 4.045952
+_cell_length_b 5.746400
+_cell_length_c 14.478541
+_cell_angle_alpha 90.0000
+_cell_angle_beta 67.5629
+_cell_angle_gamma 90.0000
+_cell_volume 311.1386
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.2820
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -57.810110
+_ccdc_csp_density_calc 1.28198
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -57.8101
+_ccdc_csp_classification_energy_lattice_relative 1.1818
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.49989375 0.74655798 0.41335702
+C2_1 C 0.49730155 0.55493507 0.34532571
+H3_1 H 0.76008273 1.01795319 0.42129927
+H4_1 H 0.28172529 0.43681443 0.38554769
+H5_1 H 0.44474030 0.61711775 0.28165378
+H6_1 H 0.74525203 0.45756188 0.31884347
+O7_1 O 0.76688953 0.89351180 0.37402106
+O8_1 O 0.27537988 0.77172895 0.49755505
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'
+
+data_acetic_acid-QR-14-125-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 125
+_klasp_stage 2
+_cell_length_a 6.372995
+_cell_length_b 4.931044
+_cell_length_c 10.132166
+_cell_angle_alpha 90.0000
+_cell_angle_beta 105.8148
+_cell_angle_gamma 90.0000
+_cell_volume 306.3560
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.3020
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -57.741787
+_ccdc_csp_density_calc 1.30200
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -57.7418
+_ccdc_csp_classification_energy_lattice_relative 1.2501
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.67435959 0.12477198 0.88225838
+C2_1 C 0.81156324 0.23071505 0.79721121
+H3_1 H 0.60923204 -0.19858313 0.96699553
+H4_1 H 0.76874111 0.44095829 0.77301792
+H5_1 H 0.98326068 0.22783540 0.85157379
+H6_1 H 0.78741153 0.12027380 0.70184430
+O7_1 O 0.70301058 -0.13552658 0.91061507
+O8_1 O 0.54830899 0.26267313 0.92515133
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'
+
+data_acetic_acid-QR-14-19-2
+_klasp_name 'acetic_acid'
+_klasp_generator QR
+_klasp_seed 19
+_klasp_stage 2
+_cell_length_a 6.859613
+_cell_length_b 4.466962
+_cell_length_c 10.546799
+_cell_angle_alpha 90.0000
+_cell_angle_beta 75.7025
+_cell_angle_gamma 90.0000
+_cell_volume 313.1614
+_cell_formula_units_Z 4
+_exptl_crystal_density_diffrn 1.2737
+_space_group_IT_number 14
+_space_group_name_H-M_alt 'P 1 21/c 1'
+_space_group_crystal_system monoclinic
+_chemical_formula_sum 'C2 H4 O2'
+_klasp_energy_kj_per_mol -57.161062
+_ccdc_csp_density_calc 1.27370
+_ccdc_csp_simulation_type static
+_ccdc_csp_simulation_temperature 0.0
+_ccdc_csp_structure_clustering_method
+'klasp online dedup: energy 5.0 kJ/mol and density 0.05 g/cm^3 bins, AMD L-inf 1.00 A, powder cosine 0.80, powder CDTW 10.0'
+_ccdc_csp_classification_energy_lattice_absolute -57.1611
+_ccdc_csp_classification_energy_lattice_relative 1.8309
+
+loop_
+_ccdc_csp_structure_optimisation_method
+_ccdc_csp_structure_optimisation_force_field_name
+_ccdc_csp_structure_optimisation_force_field_description
+_ccdc_csp_structure_optimisation_software
+_ccdc_csp_structure_optimisation_software_version
+_ccdc_csp_structure_optimisation_stage
+'Force field' klasp 'atom-atom exp-6 repulsion-dispersion with distributed multipole electrostatics' klasp 2d3b273 F
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+C1_1 C 0.32357269 0.82429319 0.90325870
+C2_1 C 0.19193497 0.70149418 0.82387222
+H3_1 H 0.58304778 0.77841566 0.93679065
+H4_1 H 0.04734280 0.81249938 0.85250533
+H5_1 H 0.25069577 0.74556438 0.72051893
+H6_1 H 0.16781377 0.46299552 0.83821045
+O7_1 O 0.50003018 0.69132562 0.88238465
+O8_1 O 0.27751349 1.03219888 0.97972605
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 'x, y, z'
+2 '-x, -y, -z'
+3 '-x, y+1/2, -z+1/2'
+4 'x, -y+1/2, z+1/2'

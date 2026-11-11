@@ -125,8 +125,26 @@ float ElementTable::get_covalent_radius(std::string_view symbol) {
     return get(symbol).covalent_radius;
 }
 
+float ElementTable::get_ball_stick_radius(std::string_view symbol) {
+    return std::clamp(get(symbol).covalent_radius * 0.50f, 0.22f, 0.58f);
+}
+
 float ElementTable::get_vdw_radius(std::string_view symbol) {
     return get(symbol).vdw_radius;
+}
+
+bool ElementTable::is_nonmetal(std::string_view symbol) {
+    int z = symbol_to_atomic_number(symbol);
+    switch (z) {
+        case 1: case 2:
+        case 5: case 6: case 7: case 8: case 9: case 10:
+        case 14: case 15: case 16: case 17: case 18:
+        case 33: case 34: case 35: case 36:
+        case 52: case 53: case 54:
+            return true;
+        default:
+            return false;
+    }
 }
 
 } // namespace moltui::core

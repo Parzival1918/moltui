@@ -24,7 +24,9 @@ public:
     static int symbol_to_atomic_number(std::string_view symbol);
     static glm::vec3 get_color(std::string_view symbol);
     static float get_covalent_radius(std::string_view symbol);
+    static float get_ball_stick_radius(std::string_view symbol);
     static float get_vdw_radius(std::string_view symbol);
+    static bool is_nonmetal(std::string_view symbol);
 };
 
 } // namespace moltui::core

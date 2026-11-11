@@ -25,12 +25,15 @@ struct GridCoordHash {
     }
 };
 
-int get_max_valence(std::string_view elem) {
+int get_max_valence(std::string_view elem, std::string_view partner) {
     if (elem == "H") return 1;
     if (elem == "O" || elem == "S") return 3; // allow hydronium/sulfonium
     if (elem == "N" || elem == "P") return 4; // quaternary ammonium/phosphine
     if (elem == "C" || elem == "Si") return 4;
-    if (elem == "F" || elem == "Cl" || elem == "Br" || elem == "I") return 1;
+    if (elem == "F" || elem == "Cl" || elem == "Br" || elem == "I") {
+        // Terminal covalent halogen when bonded to a non-metal; higher coordination in ionic salts
+        return ElementTable::is_nonmetal(partner) ? 1 : 12;
+    }
     return 12; // metals/coordination complexes
 }
 
@@ -43,10 +46,43 @@ struct CandidateBond {
 
 } // namespace
 
+glm::ivec3 BondPerceiver::minimum_image_shift(
+    const glm::vec3& frac_i,
+    const glm::vec3& frac_j,
+    const UnitCell& cell
+) {
+    glm::vec3 diff = frac_j - frac_i;
+    glm::ivec3 base(
+        static_cast<int>(std::round(diff.x)),
+        static_cast<int>(std::round(diff.y)),
+        static_cast<int>(std::round(diff.z))
+    );
+
+    glm::ivec3 best_s = base;
+    float best_dist_sq = 1e30f;
+
+    for (int kx = -1; kx <= 1; ++kx) {
+        for (int ky = -1; ky <= 1; ++ky) {
+            for (int kz = -1; kz <= 1; ++kz) {
+                glm::ivec3 s = base + glm::ivec3(kx, ky, kz);
+                glm::vec3 cart = cell.fractional_to_cartesian(diff - glm::vec3(s));
+                float d2 = glm::dot(cart, cart);
+                if (d2 < best_dist_sq) {
+                    best_dist_sq = d2;
+                    best_s = s;
+                }
+            }
+        }
+    }
+
+    return best_s;
+}
+
 std::vector<Bond> BondPerceiver::compute_bonds(
     const std::vector<Atom>& atoms,
     const std::optional<UnitCell>& cell,
-    float tolerance
+    float tolerance,
+    bool use_pbc
 ) {
     std::vector<Bond> final_bonds;
     if (atoms.size() < 2) return final_bonds;
@@ -105,28 +141,25 @@ std::vector<Bond> BondPerceiver::compute_bonds(
     }
 
     // In periodic crystals, check for periodic boundary crossing bonds
-    if (cell.has_value() && atoms.size() < 2500) {
+    if (use_pbc && cell.has_value() && atoms.size() < 2500) {
         for (size_t i = 0; i < atoms.size(); ++i) {
+            if (!atoms[i].visible) continue;
             float r1 = ElementTable::get_covalent_radius(atoms[i].element);
             for (size_t j = i + 1; j < atoms.size(); ++j) {
+                if (!atoms[j].visible) continue;
                 float r2 = ElementTable::get_covalent_radius(atoms[j].element);
                 float max_dist = r1 + r2 + tolerance;
 
-                glm::vec3 frac_diff = atoms[j].frac_pos - atoms[i].frac_pos;
-                glm::vec3 pbc_shift = glm::round(frac_diff);
-                if (pbc_shift == glm::vec3(0.0f)) continue; // already handled by spatial grid
+                glm::ivec3 pbc_shift = minimum_image_shift(atoms[i].frac_pos, atoms[j].frac_pos, *cell);
+                if (pbc_shift == glm::ivec3(0)) continue; // already handled by spatial grid
 
-                glm::vec3 min_image_frac = frac_diff - pbc_shift;
+                glm::vec3 min_image_frac = (atoms[j].frac_pos - glm::vec3(pbc_shift)) - atoms[i].frac_pos;
                 glm::vec3 min_image_cart = cell->fractional_to_cartesian(min_image_frac);
                 float dist = glm::length(min_image_cart);
 
                 if (dist >= 0.45f && dist <= max_dist) {
-                    glm::ivec3 cell_offset(
-                        static_cast<int>(pbc_shift.x),
-                        static_cast<int>(pbc_shift.y),
-                        static_cast<int>(pbc_shift.z)
-                    );
-                    candidates.push_back({i, j, dist, cell_offset});
+                    // cell_offset shifts atom2 into atom1's periodic neighborhood
+                    candidates.push_back({i, j, dist, -pbc_shift});
                 }
             }
         }
@@ -140,8 +173,8 @@ std::vector<Bond> BondPerceiver::compute_bonds(
     // Enforce valence limits to prevent spurious cross-ring connections
     std::vector<int> valence_counts(atoms.size(), 0);
     for (const auto& cb : candidates) {
-        int max_v1 = get_max_valence(atoms[cb.atom1].element);
-        int max_v2 = get_max_valence(atoms[cb.atom2].element);
+        int max_v1 = get_max_valence(atoms[cb.atom1].element, atoms[cb.atom2].element);
+        int max_v2 = get_max_valence(atoms[cb.atom2].element, atoms[cb.atom1].element);
 
         if (valence_counts[cb.atom1] < max_v1 && valence_counts[cb.atom2] < max_v2) {
             valence_counts[cb.atom1]++;

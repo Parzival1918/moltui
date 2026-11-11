@@ -95,10 +95,26 @@ void test_pbc_unwrapping() {
     std::cout << "PASSED (Bond preserved, distance " << dist_unwrapped << " A)\n";
 }
 
+void test_center_of_mass() {
+    std::cout << "[Test] Center of Mass... ";
+    Structure st;
+    // O (mass ~16) at (0,0,0) and H (mass ~1) at (17,0,0) -> COM x ≈ 1.0
+    st.atoms = {
+        {0, "O", "O1", {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}},
+        {1, "H", "H1", {17.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}}
+    };
+    glm::vec3 com = st.center_of_mass();
+    assert(std::abs(com.x - (1.008f * 17.0f / (15.999f + 1.008f))) < 1e-3f);
+    assert(std::abs(com.y) < 1e-5f);
+    assert(std::abs(com.z) < 1e-5f);
+    std::cout << "PASSED (COM x=" << com.x << ")\n";
+}
+
 int main() {
     test_element_table();
     test_unit_cell_transforms();
     test_pbc_unwrapping();
+    test_center_of_mass();
     std::cout << "All structure tests PASSED!\n";
     return 0;
 }

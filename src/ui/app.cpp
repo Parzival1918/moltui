@@ -1,13 +1,16 @@
 #include "moltui/ui/app.hpp"
 #include "moltui/core/elements.hpp"
+#include "moltui/core/pbc_unwrapper.hpp"
 #include "moltui/io/loader.hpp"
 
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <glm/geometric.hpp>
+#include <condition_variable>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <cmath>
 #include <chrono>
@@ -50,15 +53,24 @@ double calculate_dihedral(
 } // namespace
 
 App::App(core::Structure structure, render::TerminalGraphicsMode graphics_mode)
-    : structure_(std::move(structure)),
-      original_structure_(structure_),
+    : App(std::vector<core::Structure>{std::move(structure)}, graphics_mode) {}
+
+App::App(std::vector<core::Structure> structures, render::TerminalGraphicsMode graphics_mode)
+    : ensemble_(std::move(structures)),
       graphics_mode_(graphics_mode) {
+    if (ensemble_.empty()) {
+        ensemble_.emplace_back();
+    }
+    structure_ = ensemble_[0];
+    original_structure_ = structure_;
+    is_unwrapped_ = structure_.is_molecular_crystal;
     setup_camera();
 }
 
 void App::setup_camera() {
     const auto& bounds = structure_.get_bounds();
-    camera_.reset(bounds.center, bounds.radius);
+    camera_.reset(structure_.center_of_mass(), bounds.radius);
+    refit_requested_ = true;
 }
 
 void App::on_atom_picked(int atom_id) {
@@ -143,6 +155,11 @@ std::string App::format_measurements() const {
 
 std::string App::format_structure_info() const {
     std::ostringstream ss;
+    if (ensemble_.size() > 1) {
+        ss << "[" << (ensemble_index_ + 1) << "/" << ensemble_.size() << "] ";
+    } else if (structure_.num_frames() > 1) {
+        ss << "[" << (structure_.current_frame + 1) << "/" << structure_.num_frames() << "] ";
+    }
     ss << structure_.title << " | " << structure_.atoms.size() << " atoms, "
        << structure_.bonds.size() << " bonds";
 
@@ -151,10 +168,6 @@ std::string App::format_structure_info() const {
         ss << " | SG: " << uc.space_group << " (" << std::fixed << std::setprecision(2)
            << uc.a << ", " << uc.b << ", " << uc.c << " Å; "
            << uc.alpha << "°, " << uc.beta << "°, " << uc.gamma << "°)";
-    }
-
-    if (structure_.num_frames() > 1) {
-        ss << " | Frame " << (structure_.current_frame + 1) << "/" << structure_.num_frames();
     }
 
     return ss.str();
@@ -171,8 +184,13 @@ void App::toggle_unwrap() {
         structure_.unwrap_pbc();
         status_message_ = "Unwrapped molecules across periodic boundaries.";
     } else {
-        structure_.wrap_pbc();
-        status_message_ = "Wrapped coordinates back into primary unit cell.";
+        if (structure_.is_molecular_crystal) {
+            structure_.wrap_pbc();
+            status_message_ = "Wrapped coordinates back into primary unit cell.";
+        } else {
+            core::PbcUnwrapper::complete_network_boundaries(structure_);
+            status_message_ = "Completed periodic network boundaries.";
+        }
     }
 }
 
@@ -193,6 +211,41 @@ void App::cycle_style() {
     }
 }
 
+void App::toggle_shading() {
+    auto& sh = rasterizer_.settings().shading;
+    if (sh == render::RenderShading::Lit) {
+        sh = render::RenderShading::Flat;
+        status_message_ = "Shading: Flat (rim)";
+    } else {
+        sh = render::RenderShading::Lit;
+        status_message_ = "Shading: Lit (Blinn-Phong)";
+    }
+}
+
+void App::step_ensemble(int delta) {
+    if (ensemble_.size() > 1) {
+        size_t n = ensemble_.size();
+        ensemble_index_ = (ensemble_index_ + n + static_cast<size_t>(delta % static_cast<int>(n))) % n;
+        structure_ = ensemble_[ensemble_index_];
+        original_structure_ = structure_;
+        selected_atom_ids_.clear();
+        is_unwrapped_ = structure_.is_molecular_crystal;
+        // Preserve orientation and zoom while recentering rotation pivot on the new structure's COM
+        camera_.set_target(structure_.center_of_mass());
+        status_message_ = "Structure " + std::to_string(ensemble_index_ + 1) + "/" +
+                          std::to_string(n) + ": " + structure_.title;
+        return;
+    }
+
+    if (structure_.num_frames() > 1) {
+        size_t n = structure_.num_frames();
+        size_t next = (structure_.current_frame + n + static_cast<size_t>(delta % static_cast<int>(n))) % n;
+        structure_.set_frame(next);
+        status_message_ = "Frame " + std::to_string(structure_.current_frame + 1) + "/" +
+                          std::to_string(n);
+    }
+}
+
 void App::execute_command(const std::string& cmd_line) {
     if (cmd_line.empty()) return;
     std::istringstream iss(cmd_line);
@@ -205,13 +258,18 @@ void App::execute_command(const std::string& cmd_line) {
         std::string path;
         if (iss >> path) {
             try {
-                auto new_st = io::StructureLoader::load_file(path);
-                structure_ = new_st;
-                original_structure_ = new_st;
-                selected_atom_ids_.clear();
-                is_unwrapped_ = false;
-                setup_camera();
-                status_message_ = "Loaded " + path;
+                auto loaded = io::StructureLoader::load_structures(path);
+                if (!loaded.empty()) {
+                    ensemble_ = std::move(loaded);
+                    ensemble_index_ = 0;
+                    structure_ = ensemble_[0];
+                    original_structure_ = structure_;
+                    selected_atom_ids_.clear();
+                    is_unwrapped_ = structure_.is_molecular_crystal;
+                    setup_camera();
+                    status_message_ = "Loaded " + path + " (" + std::to_string(ensemble_.size()) +
+                                      (ensemble_.size() == 1 ? " structure)" : " structures)");
+                }
             } catch (const std::exception& e) {
                 status_message_ = "Error loading file: " + std::string(e.what());
             }
@@ -222,6 +280,7 @@ void App::execute_command(const std::string& cmd_line) {
             if (original_structure_.unit_cell.has_value()) {
                 structure_ = original_structure_.generate_supercell(nx, ny, nz);
                 selected_atom_ids_.clear();
+                is_unwrapped_ = structure_.is_molecular_crystal;
                 setup_camera();
                 status_message_ = "Generated supercell: " + std::to_string(nx) + "x" +
                                   std::to_string(ny) + "x" + std::to_string(nz);
@@ -247,6 +306,31 @@ void App::execute_command(const std::string& cmd_line) {
             }
             status_message_ = "Style updated to " + mode;
         }
+    } else if (cmd == "shading") {
+        std::string mode;
+        if (iss >> mode) {
+            if (mode == "flat") {
+                rasterizer_.settings().shading = render::RenderShading::Flat;
+                status_message_ = "Shading: Flat (rim)";
+            } else {
+                rasterizer_.settings().shading = render::RenderShading::Lit;
+                status_message_ = "Shading: Lit (Blinn-Phong)";
+            }
+        }
+    } else if (cmd == "ortho") {
+        camera_.orthographic = true;
+        status_message_ = "Projection: Orthographic";
+    } else if (cmd == "persp" || cmd == "perspective") {
+        camera_.orthographic = false;
+        status_message_ = "Projection: Perspective";
+    } else if (cmd == "draft" || cmd == "adaptive") {
+        std::string arg;
+        if (iss >> arg) {
+            adaptive_quality_ = (arg != "off" && arg != "false" && arg != "0");
+        } else {
+            adaptive_quality_ = !adaptive_quality_;
+        }
+        status_message_ = adaptive_quality_ ? "Adaptive draft quality: ON" : "Adaptive draft quality: OFF";
     } else if (cmd == "hkl") {
         int h = 0, k = 0, l = 0;
         if (iss >> h >> k >> l) {
@@ -324,6 +408,47 @@ void App::run() {
         }
     };
 
+    std::mutex timer_mtx;
+    std::condition_variable timer_cv;
+    bool timer_stop = false;
+    bool refine_pending = false;
+    auto refine_deadline = std::chrono::steady_clock::now();
+
+    auto trigger_draft_interaction = [&]() {
+        if (!adaptive_quality_) return;
+        viewport->set_draft_mode(true);
+        {
+            std::lock_guard<std::mutex> lk(timer_mtx);
+            refine_pending = true;
+            refine_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(180);
+        }
+        timer_cv.notify_one();
+    };
+
+    std::thread refine_thread([&]() {
+        std::unique_lock<std::mutex> lk(timer_mtx);
+        while (!timer_stop) {
+            if (!refine_pending) {
+                timer_cv.wait(lk, [&]() { return timer_stop || refine_pending; });
+                continue;
+            }
+            if (timer_cv.wait_until(lk, refine_deadline, [&]() { return timer_stop; })) {
+                break;
+            }
+            if (refine_pending && std::chrono::steady_clock::now() >= refine_deadline) {
+                refine_pending = false;
+                lk.unlock();
+                screen.Post([&]() {
+                    if (viewport->draft_mode()) {
+                        viewport->set_draft_mode(false);
+                    }
+                });
+                screen.PostEvent(ftxui::Event::Custom);
+                lk.lock();
+            }
+        }
+    });
+
     viewport = std::make_shared<MolViewport>(
         structure_,
         camera_,
@@ -341,8 +466,10 @@ void App::run() {
                     screen.Post(sync_kitty_overlay);
                 }
             }
-        }
+        },
+        trigger_draft_interaction
     );
+    viewport->set_adaptive_quality(adaptive_quality_);
 
     auto component = ftxui::CatchEvent(viewport, [&](ftxui::Event event) {
         if (command_mode_) {
@@ -355,7 +482,13 @@ void App::run() {
                 command_mode_ = false;
                 execute_command(command_buffer_);
                 command_buffer_.clear();
-                viewport->mark_scene_dirty();
+                viewport->set_adaptive_quality(adaptive_quality_);
+                if (refit_requested_) {
+                    viewport->request_refit();
+                    refit_requested_ = false;
+                } else {
+                    viewport->mark_scene_dirty();
+                }
                 if (quit_requested_) {
                     screen.Exit();
                 }
@@ -382,9 +515,16 @@ void App::run() {
             command_buffer_.clear();
             return true;
         }
+        if (event == ftxui::Event::Character('d')) {
+            adaptive_quality_ = !adaptive_quality_;
+            viewport->set_adaptive_quality(adaptive_quality_);
+            status_message_ = adaptive_quality_ ? "Adaptive draft quality: ON" : "Adaptive draft quality: OFF";
+            return true;
+        }
         if (event == ftxui::Event::Character('r')) {
             setup_camera();
-            viewport->mark_scene_dirty();
+            viewport->request_refit();
+            refit_requested_ = false;
             status_message_ = "Camera reset.";
             return true;
         }
@@ -396,6 +536,17 @@ void App::run() {
         if (event == ftxui::Event::Character('s')) {
             cycle_style();
             viewport->mark_scene_dirty();
+            return true;
+        }
+        if (event == ftxui::Event::Character('f')) {
+            toggle_shading();
+            viewport->mark_scene_dirty();
+            return true;
+        }
+        if (event == ftxui::Event::Character('o')) {
+            camera_.orthographic = !camera_.orthographic;
+            viewport->mark_scene_dirty();
+            status_message_ = camera_.orthographic ? "Projection: Orthographic" : "Projection: Perspective";
             return true;
         }
         if (event == ftxui::Event::Character('c')) {
@@ -423,23 +574,14 @@ void App::run() {
             show_help_ = !show_help_;
             return true;
         }
-        if (event == ftxui::Event::Character(']')) {
-            if (structure_.num_frames() > 1) {
-                structure_.set_frame((structure_.current_frame + 1) % structure_.num_frames());
-                viewport->mark_scene_dirty();
-                status_message_ = "Frame " + std::to_string(structure_.current_frame + 1) + "/" +
-                                  std::to_string(structure_.num_frames());
-            }
+        if (event == ftxui::Event::Character(']') || event == ftxui::Event::Character('n')) {
+            step_ensemble(1);
+            viewport->mark_scene_dirty();
             return true;
         }
-        if (event == ftxui::Event::Character('[')) {
-            if (structure_.num_frames() > 1) {
-                size_t prev = (structure_.current_frame == 0) ? (structure_.num_frames() - 1) : (structure_.current_frame - 1);
-                structure_.set_frame(prev);
-                viewport->mark_scene_dirty();
-                status_message_ = "Frame " + std::to_string(structure_.current_frame + 1) + "/" +
-                                  std::to_string(structure_.num_frames());
-            }
+        if (event == ftxui::Event::Character('[') || event == ftxui::Event::Character('p')) {
+            step_ensemble(-1);
+            viewport->mark_scene_dirty();
             return true;
         }
         if (event == ftxui::Event::Character(' ')) {
@@ -450,19 +592,25 @@ void App::run() {
             return true;
         }
 
-        // Camera keyboard controls (Vim navigation hjkl)
-        if (event == ftxui::Event::Character('h')) { camera_.rotate(-6.0f, 0.0f); viewport->mark_scene_dirty(); return true; }
-        if (event == ftxui::Event::Character('l')) { camera_.rotate(6.0f, 0.0f); viewport->mark_scene_dirty(); return true; }
-        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 6.0f); viewport->mark_scene_dirty(); return true; }
-        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -6.0f); viewport->mark_scene_dirty(); return true; }
+        // Camera keyboard controls: hjkl rotate around COM, Shift+hjkl displace on screen
+        if (event == ftxui::Event::Character('h')) { camera_.rotate(-6.0f, 0.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('l')) { camera_.rotate(6.0f, 0.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 6.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -6.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('H')) { camera_.pan(-12.0f, 0.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('L')) { camera_.pan(12.0f, 0.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('J')) { camera_.pan(0.0f, -12.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
+        if (event == ftxui::Event::Character('K')) { camera_.pan(0.0f, 12.0f); viewport->mark_scene_dirty(); trigger_draft_interaction(); return true; }
         if (event == ftxui::Event::Character('+') || event == ftxui::Event::Character('=')) {
             camera_.zoom(0.9f);
             viewport->mark_scene_dirty();
+            trigger_draft_interaction();
             return true;
         }
         if (event == ftxui::Event::Character('-') || event == ftxui::Event::Character('_')) {
             camera_.zoom(1.1f);
             viewport->mark_scene_dirty();
+            trigger_draft_interaction();
             return true;
         }
 
@@ -473,16 +621,29 @@ void App::run() {
         using namespace ftxui;
 
         // Title Bar
-        auto title_bar = hbox({
+        Elements title_items = {
             text(" MolTUI ") | bold | bgcolor(Color::RGB(41, 98, 255)) | color(Color::White),
             separator(),
-            text(" " + format_structure_info() + " ") | color(Color::RGB(180, 200, 220)),
-            filler(),
+            text(" " + format_structure_info() + " ") | color(Color::RGB(180, 200, 220)) | flex_shrink,
+            filler()
+        };
+        if (structure_.unit_cell.has_value() && rasterizer_.settings().show_unit_cell) {
+            title_items.push_back(hbox({
+                text(" Cell: "),
+                text("■a ") | bold | color(Color::RGB(228, 86, 86)),
+                text("■b ") | bold | color(Color::RGB(96, 196, 112)),
+                text("■c ") | bold | color(Color::RGB(104, 150, 244))
+            }) | color(Color::RGB(160, 175, 200)));
+        }
+        title_items.push_back(
             text(std::string(" [") + render::ProtocolRenderer::mode_name(graphics_mode_) + "] ") | bold |
-                color(Color::RGB(140, 200, 255)),
+            color(Color::RGB(140, 200, 255))
+        );
+        title_items.push_back(
             text(is_unwrapped_ ? " [UNWRAPPED PBC] " : " [UNIT CELL] ") | bold |
-                color(is_unwrapped_ ? Color::RGB(80, 230, 120) : Color::RGB(240, 200, 60))
-        }) | bgcolor(Color::RGB(20, 24, 34));
+            color(is_unwrapped_ ? Color::RGB(80, 230, 120) : Color::RGB(240, 200, 60))
+        );
+        auto title_bar = hbox(std::move(title_items)) | bgcolor(Color::RGB(20, 24, 34));
 
         // Bottom Bar / Command Bar
         Element bottom_bar;
@@ -496,7 +657,7 @@ void App::run() {
             bottom_bar = hbox({
                 text(" " + status_message_ + " ") | color(Color::RGB(220, 225, 235)),
                 filler(),
-                text(" [u]nwrap [s]tyle [c]ell [m]easure [r]eset [?]help [:]cmd [q]uit ") |
+                text(" [s]tyle [f]shading [d]raft [o]rtho [u]nwrap [c]ell [?]help [q]uit ") |
                     color(Color::RGB(120, 140, 160))
             }) | bgcolor(Color::RGB(24, 28, 40));
         }
@@ -513,21 +674,22 @@ void App::run() {
                     text(" MolTUI Quick Reference ") | bold | color(Color::White),
                     vbox({
                         text(" Mouse Controls ") | bold | color(Color::RGB(255, 200, 40)),
-                        text("   Left-Click + Drag    : Trackball 3D rotation") | color(Color::RGB(190, 220, 255)),
-                        text("   Right-Click / Shift  : Screen pan") | color(Color::RGB(190, 220, 255)),
+                        text("   Left-Click + Drag    : Rotate around center of mass") | color(Color::RGB(190, 220, 255)),
+                        text("   Right-Click / Shift  : Displace structure (screen pan)") | color(Color::RGB(190, 220, 255)),
                         text("   Scroll Wheel         : Zoom in / out") | color(Color::RGB(190, 220, 255)),
                         text("   Left-Click on Atom   : Pick atom for measurements") | color(Color::RGB(190, 220, 255)),
                         separator() | color(Color::RGB(60, 70, 95)),
                         text(" Keybindings ") | bold | color(Color::RGB(255, 200, 40)),
-                        text("   h / j / k / l        : Rotate left / down / up / right") | color(Color::RGB(240, 220, 120)),
+                        text("   h / j / k / l        : Rotate around COM (left/down/up/right)") | color(Color::RGB(240, 220, 120)),
+                        text("   Shift + h/j/k/l      : Displace structure (pan left/down/up/right)") | color(Color::RGB(240, 220, 120)),
                         text("   + / -                : Zoom in / out") | color(Color::RGB(240, 220, 120)),
+                        text("   s / f / d / o        : Style / flat shading / draft motion / ortho") | color(Color::RGB(200, 215, 235)),
                         text("   u                    : Toggle PBC unwrapping (Make Whole)") | color(Color::RGB(120, 240, 140)),
-                        text("   s                    : Cycle representation (Ball&Stick, VDW, Licorice, Wire)") | color(Color::RGB(200, 215, 235)),
                         text("   c / b                : Toggle unit cell wireframe / bonds") | color(Color::RGB(200, 215, 235)),
                         text("   m                    : Clear active measurements") | color(Color::RGB(200, 215, 235)),
                         text("   r                    : Reset camera view") | color(Color::RGB(200, 215, 235)),
-                        text("   Space / [ / ]        : Trajectory play/pause, prev/next frame") | color(Color::RGB(200, 215, 235)),
-                        text("   :                    : Command mode (:cell 2 2 2, :hkl 1 1 1, :load, :q)") | color(Color::RGB(255, 180, 100)),
+                        text("   Space / [ / ] / n/p  : Play/pause, prev/next frame or structure") | color(Color::RGB(200, 215, 235)),
+                        text("   :                    : Command mode (:cell 2 2 2, :hkl 1 1 1, :draft on/off, :q)") | color(Color::RGB(255, 180, 100)),
                         text("   ?                    : Toggle this help") | color(Color::RGB(200, 215, 235)),
                         text("   q / Esc              : Quit") | color(Color::RGB(255, 110, 110)),
                     }) | bgcolor(Color::RGB(20, 24, 36))
@@ -547,6 +709,13 @@ void App::run() {
     });
 
     screen.Loop(renderer);
+
+    {
+        std::lock_guard<std::mutex> lk(timer_mtx);
+        timer_stop = true;
+    }
+    timer_cv.notify_one();
+    refine_thread.join();
 
     if (sync_open) {
         write_seq("\x1b[?2026l");

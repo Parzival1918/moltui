@@ -1,5 +1,6 @@
 #include "moltui/core/structure.hpp"
 #include "moltui/core/bonding.hpp"
+#include "moltui/core/elements.hpp"
 #include "moltui/core/pbc_unwrapper.hpp"
 #include <cmath>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -103,8 +104,58 @@ const Bounds& Structure::get_bounds() const {
     return bounds;
 }
 
-void Structure::compute_bonds(float tolerance) {
-    bonds = BondPerceiver::compute_bonds(atoms, unit_cell, tolerance);
+glm::vec3 Structure::center_of_mass() const {
+    if (atoms.empty()) {
+        return glm::vec3(0.0f);
+    }
+
+    glm::dvec3 weighted_sum(0.0);
+    double total_mass = 0.0;
+    glm::dvec3 geom_sum(0.0);
+    size_t visible_count = 0;
+
+    for (const auto& a : atoms) {
+        if (!a.visible) continue;
+        double m = static_cast<double>(ElementTable::get(a.element).atomic_mass);
+        if (m <= 0.0) m = 1.0;
+        weighted_sum += m * glm::dvec3(a.pos);
+        total_mass += m;
+        geom_sum += glm::dvec3(a.pos);
+        ++visible_count;
+    }
+
+    if (visible_count == 0) {
+        return get_bounds().center;
+    }
+    if (total_mass > 0.0) {
+        return glm::vec3(weighted_sum / total_mass);
+    }
+    return glm::vec3(geom_sum / static_cast<double>(visible_count));
+}
+
+void Structure::compute_bonds(float tolerance, bool use_pbc) {
+    bonds = BondPerceiver::compute_bonds(atoms, unit_cell, tolerance, use_pbc);
+}
+
+bool Structure::prepare_crystal_display() {
+    if (!unit_cell.has_value() || atoms.empty()) {
+        return false;
+    }
+
+    // Wrap to primary cell first so percolation analysis is canonical
+    PbcUnwrapper::wrap_to_unit_cell(*this);
+
+    if (PbcUnwrapper::bonding_percolates(*this)) {
+        is_molecular_crystal = false;
+        PbcUnwrapper::complete_network_boundaries(*this);
+        bounds_dirty = true;
+        return false;
+    }
+
+    is_molecular_crystal = true;
+    PbcUnwrapper::unwrap(*this);
+    bounds_dirty = true;
+    return true;
 }
 
 void Structure::unwrap_pbc() {
@@ -118,13 +169,26 @@ void Structure::wrap_pbc() {
 }
 
 Structure Structure::generate_supercell(int nx, int ny, int nz) const {
-    if (!unit_cell.has_value() || (nx <= 1 && ny <= 1 && nz <= 1)) {
+    if (!unit_cell.has_value()) {
         return *this;
+    }
+
+    nx = std::max(1, nx);
+    ny = std::max(1, ny);
+    nz = std::max(1, nz);
+
+    // Start from deduplicated primary [0, 1) sites so boundary replicas aren't duplicated
+    Structure base = *this;
+    PbcUnwrapper::wrap_to_unit_cell(base);
+
+    if (nx == 1 && ny == 1 && nz == 1) {
+        base.prepare_crystal_display();
+        return base;
     }
 
     Structure super;
     super.title = title + " [supercell]";
-    
+
     UnitCell new_cell = *unit_cell;
     new_cell.a *= nx;
     new_cell.b *= ny;
@@ -141,7 +205,7 @@ Structure Structure::generate_supercell(int nx, int ny, int nz) const {
                     static_cast<float>(iy),
                     static_cast<float>(iz)
                 );
-                for (const auto& a : atoms) {
+                for (const auto& a : base.atoms) {
                     Atom na = a;
                     na.id = id++;
                     // Supercell fractional coordinate
@@ -153,7 +217,7 @@ Structure Structure::generate_supercell(int nx, int ny, int nz) const {
         }
     }
 
-    super.compute_bonds();
+    super.prepare_crystal_display();
     return super;
 }
 

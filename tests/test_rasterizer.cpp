@@ -70,6 +70,61 @@ void test_rasterizer_sphere() {
     std::cout << "PASSED (Atom hit ID: " << hit_atom << ")\n";
 }
 
+void test_rasterizer_cylinder_and_shading() {
+    std::cout << "[Test] Rasterizer Cylinder & Flat/Lit Shading... ";
+    Structure st;
+    Atom a1, a2;
+    a1.id = 0;
+    a1.element = "C";
+    a1.pos = {-1.0f, 0.0f, 0.0f};
+    a2.id = 1;
+    a2.element = "O";
+    a2.pos = {1.0f, 0.0f, 0.0f};
+    st.atoms = {a1, a2};
+    st.bonds.push_back({0, 1, 1.0f, {0, 0, 0}});
+
+    Camera cam;
+    cam.set_viewport(80, 40);
+    cam.reset({0.0f, 0.0f, 0.0f}, 1.5f);
+
+    Rasterizer rast;
+    rast.settings().show_unit_cell = false;
+    rast.settings().style = RenderStyle::BallAndStick;
+
+    Framebuffer fb_lit(80, 40);
+    rast.render(st, cam, fb_lit);
+    // Midpoint (40, 20) should be rendered by the 3D cylinder bond
+    assert(fb_lit.get_depth(40, 20) < 1e8f);
+    assert(fb_lit.get_color(40, 20) != rast.settings().background_color);
+
+    // Left half of bond belongs to C (neutral grey), right half to O (reddish)
+    glm::u8vec3 left_col = fb_lit.get_color(35, 20);
+    glm::u8vec3 right_col = fb_lit.get_color(45, 20);
+    assert(right_col.r > right_col.b + 30);
+    assert(std::abs(static_cast<int>(left_col.r) - static_cast<int>(left_col.b)) < 15);
+
+    // Test Flat shading + Perspective projection
+    rast.settings().shading = RenderShading::Flat;
+    cam.orthographic = false;
+    Framebuffer fb_flat(80, 40);
+    rast.render(st, cam, fb_flat);
+    assert(fb_flat.get_depth(40, 20) < 1e8f);
+
+    // Test COM-centered rotation after panning
+    cam.orthographic = true;
+    cam.set_viewport(100, 100);
+    glm::vec3 com(2.0f, -1.0f, 0.5f);
+    cam.reset(com, 3.0f);
+    cam.pan(50.0f, -30.0f);
+    glm::vec3 screen_before = cam.world_to_screen(com);
+    cam.rotate(45.0f, 25.0f);
+    glm::vec3 screen_after = cam.world_to_screen(com);
+    assert(std::abs(screen_before.x - screen_after.x) < 1e-3f);
+    assert(std::abs(screen_before.y - screen_after.y) < 1e-3f);
+
+    std::cout << "PASSED\n";
+}
+
 void test_protocol_renderer() {
     std::cout << "[Test] ProtocolRenderer (Kitty, Half-Blocks, ASCII)... ";
 
@@ -138,6 +193,7 @@ void test_protocol_renderer() {
 int main() {
     test_framebuffer();
     test_rasterizer_sphere();
+    test_rasterizer_cylinder_and_shading();
     test_protocol_renderer();
     std::cout << "All rasterizer tests PASSED!\n";
     return 0;

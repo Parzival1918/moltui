@@ -35,6 +35,10 @@ int main(int argc, char** argv) {
     app.add_option("-m,--mode,--render", render_mode,
                    "Rendering mode: auto, kitty, half-blocks, ascii");
 
+    bool adaptive_quality = true;
+    app.add_flag("--draft,!--no-draft", adaptive_quality,
+                 "Lower resolution while rotating/displacing for smoother motion (default: on)");
+
     CLI11_PARSE(app, argc, argv);
 
     auto parsed_mode = moltui::render::ProtocolRenderer::parse_mode(render_mode);
@@ -61,29 +65,33 @@ int main(int argc, char** argv) {
     };
 
     try {
-        moltui::core::Structure st;
+        std::vector<moltui::core::Structure> structures;
         if (!filepath.empty()) {
-            st = moltui::io::StructureLoader::load_file(filepath);
+            structures = moltui::io::StructureLoader::load_structures(filepath);
         } else {
             // Default demo molecule if no file is passed: create a water molecule
+            moltui::core::Structure st;
             st.title = "H2O (Demo Molecule)";
             st.atoms = {
                 {0, "O", "O1", {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}},
                 {1, "H", "H1", {0.757f, 0.586f, 0.0f}, {0.0f, 0.0f, 0.0f}},
                 {2, "H", "H2", {-0.757f, 0.586f, 0.0f}, {0.0f, 0.0f, 0.0f}}
             };
-            st.compute_bonds();
+            st.compute_bonds(0.28f, false);
+            structures.push_back(std::move(st));
         }
 
-        if (supercell.size() == 3) {
-            st = st.generate_supercell(supercell[0], supercell[1], supercell[2]);
-        }
-
-        if (unwrap && st.is_periodic()) {
-            st.unwrap_pbc();
+        for (auto& st : structures) {
+            if (supercell.size() == 3) {
+                st = st.generate_supercell(supercell[0], supercell[1], supercell[2]);
+            }
+            if (unwrap && st.is_periodic() && !st.is_molecular_crystal) {
+                st.unwrap_pbc();
+            }
         }
 
         if (print_snapshot) {
+            const auto& st = structures.front();
             int snap_w = 80;
             int snap_h = 50;
             if (graphics_mode == moltui::render::TerminalGraphicsMode::KittyGraphics) {
@@ -91,13 +99,29 @@ int main(int argc, char** argv) {
                 snap_h = 400;
             }
 
+            moltui::render::Rasterizer rast;
+            apply_rasterizer_options(rast);
+
             moltui::render::Camera cam;
             cam.set_viewport(snap_w, snap_h);
             const auto& b = st.get_bounds();
-            cam.reset(b.center, b.radius);
+            glm::vec3 com = st.center_of_mass();
+            cam.reset(com, b.radius);
 
-            moltui::render::Rasterizer rast;
-            apply_rasterizer_options(rast);
+            std::vector<glm::vec3> pts;
+            std::vector<float> radii;
+            for (const auto& atom : st.atoms) {
+                pts.push_back(atom.pos);
+                radii.push_back(0.4f);
+            }
+            if (rast.settings().show_unit_cell && st.unit_cell.has_value()) {
+                for (int i = 0; i < 8; ++i) {
+                    glm::vec3 frac((i & 1) ? 1.0f : 0.0f, (i & 2) ? 1.0f : 0.0f, (i & 4) ? 1.0f : 0.0f);
+                    pts.push_back(st.unit_cell->fractional_to_cartesian(frac));
+                    radii.push_back(0.2f);
+                }
+            }
+            cam.fit_extent(com, pts, radii, false);
 
             moltui::render::Framebuffer fb(snap_w, snap_h);
             rast.render(st, cam, fb);
@@ -119,7 +143,8 @@ int main(int argc, char** argv) {
             return 0;
         }
 
-        moltui::ui::App ui_app(std::move(st), graphics_mode);
+        moltui::ui::App ui_app(std::move(structures), graphics_mode);
+        ui_app.set_adaptive_quality(adaptive_quality);
         apply_rasterizer_options(ui_app.rasterizer());
         ui_app.run();
 

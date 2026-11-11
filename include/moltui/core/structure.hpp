@@ -53,12 +53,15 @@ public:
     void clear();
     void compute_bounds() const;
     const Bounds& get_bounds() const;
+    glm::vec3 center_of_mass() const;
 
     // Bonding heuristics
-    void compute_bonds(float tolerance = 0.28f);
+    void compute_bonds(float tolerance = 0.28f, bool use_pbc = true);
 
     // Periodic Boundary Operations
     bool is_periodic() const { return unit_cell.has_value(); }
+    bool is_molecular_crystal{false};
+    bool prepare_crystal_display();
     void unwrap_pbc();
     void wrap_pbc();
 

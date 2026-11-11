@@ -20,11 +20,20 @@ public:
         render::TerminalGraphicsMode graphics_mode = render::ProtocolRenderer::detect_best_protocol()
     );
 
+    explicit App(
+        std::vector<core::Structure> structures,
+        render::TerminalGraphicsMode graphics_mode = render::ProtocolRenderer::detect_best_protocol()
+    );
+
     void run();
 
     render::Rasterizer& rasterizer() { return rasterizer_; }
+    void set_adaptive_quality(bool enabled) { adaptive_quality_ = enabled; }
+    bool adaptive_quality() const { return adaptive_quality_; }
 
 private:
+    std::vector<core::Structure> ensemble_;
+    size_t ensemble_index_{0};
     core::Structure structure_;
     core::Structure original_structure_; // Preserved for cell resets/unwrapping
     render::Camera camera_;
@@ -36,6 +45,8 @@ private:
     bool show_help_{false};
     bool command_mode_{false};
     bool quit_requested_{false};
+    bool refit_requested_{false};
+    bool adaptive_quality_{true};
     std::string command_buffer_{""};
     std::string status_message_{"Ready. Type : for command mode, ? for help."};
 
@@ -47,6 +58,8 @@ private:
     void execute_command(const std::string& cmd);
     void toggle_unwrap();
     void cycle_style();
+    void toggle_shading();
+    void step_ensemble(int delta);
     
     // Measurement calculation helpers
     std::string format_measurements() const;

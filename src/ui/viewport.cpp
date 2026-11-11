@@ -1,4 +1,5 @@
 #include "moltui/ui/viewport.hpp"
+#include "moltui/core/elements.hpp"
 #include <ftxui/dom/node.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
@@ -15,7 +16,7 @@ namespace moltui::ui {
 
 namespace {
 
-std::pair<int, int> query_kitty_pixel_size(int cols, int rows) {
+std::pair<int, int> query_kitty_pixel_size(int cols, int rows, bool draft) {
     struct winsize ws{};
     double cell_w = 10.0;
     double cell_h = 20.0;
@@ -37,15 +38,62 @@ std::pair<int, int> query_kitty_pixel_size(int cols, int rows) {
     int pixel_w = std::max(1, static_cast<int>(std::round(cols * cell_w)));
     int pixel_h = std::max(1, static_cast<int>(std::round(rows * cell_h)));
 
-    constexpr int kMaxRenderDim = 960;
+    if (draft) {
+        pixel_w = std::max(1, static_cast<int>(std::round(pixel_w * 0.5)));
+        pixel_h = std::max(1, static_cast<int>(std::round(pixel_h * 0.5)));
+    }
+
+    const int max_render_dim = draft ? 540 : 1920;
     int max_dim = std::max(pixel_w, pixel_h);
-    if (max_dim > kMaxRenderDim) {
-        double scale = static_cast<double>(kMaxRenderDim) / max_dim;
+    if (max_dim > max_render_dim) {
+        double scale = static_cast<double>(max_render_dim) / max_dim;
         pixel_w = std::max(1, static_cast<int>(std::round(pixel_w * scale)));
         pixel_h = std::max(1, static_cast<int>(std::round(pixel_h * scale)));
     }
 
     return {pixel_w, pixel_h};
+}
+
+void fit_camera_to_structure(
+    const core::Structure& structure,
+    render::Camera& camera,
+    const render::RasterizerSettings& settings
+) {
+    std::vector<glm::vec3> pts;
+    std::vector<float> radii;
+    pts.reserve(structure.atoms.size() + 8);
+    radii.reserve(structure.atoms.size() + 8);
+
+    for (const auto& atom : structure.atoms) {
+        if (!atom.visible) continue;
+        float r = 0.25f;
+        if (settings.style == render::RenderStyle::SpaceFilling) {
+            r = core::ElementTable::get_vdw_radius(atom.element);
+        } else if (settings.style == render::RenderStyle::BallAndStick) {
+            r = core::ElementTable::get_ball_stick_radius(atom.element) *
+                (structure.is_periodic() ? 1.05f : 0.90f);
+        } else {
+            r = settings.bond_radius;
+        }
+        pts.push_back(atom.pos);
+        radii.push_back(r);
+    }
+
+    if (settings.show_unit_cell && structure.unit_cell.has_value()) {
+        for (int i = 0; i < 8; ++i) {
+            glm::vec3 frac(
+                (i & 1) ? 1.0f : 0.0f,
+                (i & 2) ? 1.0f : 0.0f,
+                (i & 4) ? 1.0f : 0.0f
+            );
+            pts.push_back(structure.unit_cell->fractional_to_cartesian(frac));
+            radii.push_back(0.20f);
+        }
+    }
+
+    if (!pts.empty()) {
+        camera.fit_extent(structure.center_of_mass(), pts, radii, false);
+    }
 }
 
 class MolViewportNode : public ftxui::Node {
@@ -59,6 +107,8 @@ public:
         int& render_height,
         render::TerminalGraphicsMode graphics_mode,
         bool& scene_dirty,
+        bool& needs_initial_fit,
+        bool use_draft,
         bool& viewport_drawn,
         bool& kitty_image_dirty,
         MolViewport::FrameRenderHook& on_frame_rendered
@@ -70,6 +120,8 @@ public:
         render_height_(render_height),
         graphics_mode_(graphics_mode),
         scene_dirty_(scene_dirty),
+        needs_initial_fit_(needs_initial_fit),
+        use_draft_(use_draft),
         viewport_drawn_(viewport_drawn),
         kitty_image_dirty_(kitty_image_dirty),
         on_frame_rendered_(on_frame_rendered) {}
@@ -90,7 +142,7 @@ public:
         int pixel_w = cols;
         int pixel_h = rows * 2;
         if (graphics_mode_ == render::TerminalGraphicsMode::KittyGraphics) {
-            auto [kw, kh] = query_kitty_pixel_size(cols, rows);
+            auto [kw, kh] = query_kitty_pixel_size(cols, rows, use_draft_);
             pixel_w = kw;
             pixel_h = kh;
         }
@@ -103,8 +155,14 @@ public:
             scene_dirty_ = true;
         }
 
+        camera_.set_viewport(pixel_w, pixel_h);
+        if (needs_initial_fit_) {
+            fit_camera_to_structure(structure_, camera_, rasterizer_.settings());
+            needs_initial_fit_ = false;
+            scene_dirty_ = true;
+        }
+
         if (scene_dirty_) {
-            camera_.set_viewport(pixel_w, pixel_h);
             rasterizer_.render(structure_, camera_, fb_);
             scene_dirty_ = false;
             kitty_image_dirty_ = true;
@@ -167,6 +225,8 @@ private:
     int& render_height_;
     render::TerminalGraphicsMode graphics_mode_;
     bool& scene_dirty_;
+    bool& needs_initial_fit_;
+    bool use_draft_;
     bool& viewport_drawn_;
     bool& kitty_image_dirty_;
     MolViewport::FrameRenderHook& on_frame_rendered_;
@@ -180,13 +240,15 @@ MolViewport::MolViewport(
     render::Rasterizer& rasterizer,
     AtomPickCallback on_pick,
     render::TerminalGraphicsMode graphics_mode,
-    FrameRenderHook on_frame_rendered
+    FrameRenderHook on_frame_rendered,
+    InteractionHook on_interaction
 ) : structure_(structure),
     camera_(camera),
     rasterizer_(rasterizer),
     on_pick_(std::move(on_pick)),
     graphics_mode_(graphics_mode),
     on_frame_rendered_(std::move(on_frame_rendered)),
+    on_interaction_(std::move(on_interaction)),
     fb_(80, 40) {}
 
 ftxui::Element MolViewport::OnRender() {
@@ -199,10 +261,28 @@ ftxui::Element MolViewport::OnRender() {
         render_height_,
         graphics_mode_,
         scene_dirty_,
+        needs_initial_fit_,
+        adaptive_quality_ && draft_mode_,
         viewport_drawn_,
         kitty_image_dirty_,
         on_frame_rendered_
     ) | ftxui::reflect(box_);
+}
+
+void MolViewport::set_adaptive_quality(bool enabled) {
+    if (adaptive_quality_ == enabled) return;
+    adaptive_quality_ = enabled;
+    if (!adaptive_quality_ && draft_mode_) {
+        draft_mode_ = false;
+    }
+    scene_dirty_ = true;
+}
+
+void MolViewport::set_draft_mode(bool draft) {
+    bool effective = adaptive_quality_ && draft;
+    if (draft_mode_ == effective) return;
+    draft_mode_ = effective;
+    scene_dirty_ = true;
 }
 
 bool MolViewport::consume_viewport_drawn() {
@@ -281,6 +361,9 @@ bool MolViewport::OnEvent(ftxui::Event event) {
                         camera_.rotate(dx * 8.0f, dy * 8.0f);
                     }
                     scene_dirty_ = true;
+                    if (on_interaction_) {
+                        on_interaction_();
+                    }
                 }
                 return true;
             } else if (mouse.motion == ftxui::Mouse::Released) {
@@ -333,6 +416,9 @@ bool MolViewport::OnEvent(ftxui::Event event) {
                     }
                 }
                 is_dragging_ = false;
+                if (draft_mode_) {
+                    set_draft_mode(false);
+                }
                 return true;
             }
         } else if (mouse.button == ftxui::Mouse::Right) {
@@ -349,19 +435,31 @@ bool MolViewport::OnEvent(ftxui::Event event) {
                 if (dx != 0.0f || dy != 0.0f) {
                     camera_.pan(dx * 4.0f, -dy * 4.0f);
                     scene_dirty_ = true;
+                    if (on_interaction_) {
+                        on_interaction_();
+                    }
                 }
                 return true;
             } else if (mouse.motion == ftxui::Mouse::Released) {
                 is_panning_ = false;
+                if (draft_mode_) {
+                    set_draft_mode(false);
+                }
                 return true;
             }
         } else if (mouse.button == ftxui::Mouse::WheelUp) {
             camera_.zoom(0.92f);
             scene_dirty_ = true;
+            if (on_interaction_) {
+                on_interaction_();
+            }
             return true;
         } else if (mouse.button == ftxui::Mouse::WheelDown) {
             camera_.zoom(1.08f);
             scene_dirty_ = true;
+            if (on_interaction_) {
+                on_interaction_();
+            }
             return true;
         }
     }

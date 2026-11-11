@@ -15,6 +15,14 @@
 namespace moltui::io {
 
 core::Structure StructureLoader::load_file(const std::filesystem::path& path) {
+    auto list = load_structures(path);
+    if (list.empty()) {
+        throw std::runtime_error("No structures found in file: " + path.string());
+    }
+    return std::move(list.front());
+}
+
+std::vector<core::Structure> StructureLoader::load_structures(const std::filesystem::path& path) {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error("File does not exist: " + path.string());
     }
@@ -26,30 +34,27 @@ core::Structure StructureLoader::load_file(const std::filesystem::path& path) {
     std::transform(upper_filename.begin(), upper_filename.end(), upper_filename.begin(), ::toupper);
 
     if (ext == ".xyz") {
-        return load_xyz(path);
-    } else if (ext == ".cif") {
+        return {load_xyz(path)};
+    } else if (ext == ".cif" || ext == ".res" || ext == ".ins") {
         try {
-            return load_cif_small(path);
+            auto blocks = load_cif_small_all(path);
+            if (!blocks.empty()) {
+                return blocks;
+            }
         } catch (...) {
-            return load_pdb_or_mmcif(path);
         }
+        return {load_pdb_or_mmcif(path)};
     } else if (ext == ".pdb" || ext == ".ent" || ext == ".mmcif") {
-        return load_pdb_or_mmcif(path);
-    } else if (ext == ".res" || ext == ".ins") {
-        try {
-            return load_cif_small(path);
-        } catch (...) {
-            return load_pdb_or_mmcif(path);
-        }
+        return {load_pdb_or_mmcif(path)};
     } else if (upper_filename.find("POSCAR") != std::string::npos || upper_filename.find("CONTCAR") != std::string::npos) {
-        return load_poscar(path);
+        return {load_poscar(path)};
     }
 
     // Default fallback: attempt Gemmi read_structure_file, then XYZ
     try {
-        return load_pdb_or_mmcif(path);
+        return {load_pdb_or_mmcif(path)};
     } catch (...) {
-        return load_xyz(path);
+        return {load_xyz(path)};
     }
 }
 
@@ -117,53 +122,64 @@ core::Structure StructureLoader::load_pdb_or_mmcif(const std::filesystem::path& 
         }
     }
 
-    s.compute_bonds();
+    s.compute_bonds(0.28f, false);
     return s;
 }
 
-core::Structure StructureLoader::load_cif_small(const std::filesystem::path& path) {
-    core::Structure s;
-    s.title = path.stem().string();
-
+std::vector<core::Structure> StructureLoader::load_cif_small_all(const std::filesystem::path& path) {
     gemmi::cif::Document doc = gemmi::cif::read_file(path.string());
     if (doc.blocks.empty()) {
         throw std::runtime_error("Empty CIF file");
     }
 
-    gemmi::SmallStructure small_st = gemmi::make_small_structure_from_block(doc.blocks[0]);
+    std::vector<core::Structure> structures;
+    structures.reserve(doc.blocks.size());
 
-    core::UnitCell uc;
-    uc.a = small_st.cell.a;
-    uc.b = small_st.cell.b;
-    uc.c = small_st.cell.c;
-    uc.alpha = small_st.cell.alpha;
-    uc.beta = small_st.cell.beta;
-    uc.gamma = small_st.cell.gamma;
-    uc.space_group = small_st.spacegroup_hm;
-    uc.update_matrices();
-    s.unit_cell = uc;
+    for (const auto& block : doc.blocks) {
+        gemmi::SmallStructure small_st = gemmi::make_small_structure_from_block(block);
+        std::vector<gemmi::SmallStructure::Site> full_sites = small_st.get_all_unit_cell_sites();
+        if (full_sites.empty()) {
+            full_sites = small_st.sites;
+        }
+        if (full_sites.empty()) {
+            continue;
+        }
 
-    // Expand symmetry equivalent positions across the full unit cell
-    std::vector<gemmi::SmallStructure::Site> full_sites = small_st.get_all_unit_cell_sites();
-    if (full_sites.empty()) {
-        full_sites = small_st.sites;
+        core::Structure s;
+        s.title = block.name.empty() ? path.stem().string() : block.name;
+
+        core::UnitCell uc;
+        uc.a = small_st.cell.a;
+        uc.b = small_st.cell.b;
+        uc.c = small_st.cell.c;
+        uc.alpha = small_st.cell.alpha;
+        uc.beta = small_st.cell.beta;
+        uc.gamma = small_st.cell.gamma;
+        uc.space_group = small_st.spacegroup_hm;
+        uc.update_matrices();
+        s.unit_cell = uc;
+
+        size_t id = 0;
+        for (const auto& site : full_sites) {
+            core::Atom a;
+            a.id = id++;
+            a.element = site.element.name();
+            a.label = site.label;
+            a.frac_pos = glm::vec3(site.fract.x, site.fract.y, site.fract.z);
+            a.pos = uc.fractional_to_cartesian(a.frac_pos);
+            a.occupancy = static_cast<float>(site.occ);
+            a.b_factor = static_cast<float>(site.u_iso * 78.9568); // U_iso to B_iso approx
+            s.atoms.push_back(a);
+        }
+
+        s.prepare_crystal_display();
+        structures.push_back(std::move(s));
     }
 
-    size_t id = 0;
-    for (const auto& site : full_sites) {
-        core::Atom a;
-        a.id = id++;
-        a.element = site.element.name();
-        a.label = site.label;
-        a.frac_pos = glm::vec3(site.fract.x, site.fract.y, site.fract.z);
-        a.pos = uc.fractional_to_cartesian(a.frac_pos);
-        a.occupancy = static_cast<float>(site.occ);
-        a.b_factor = static_cast<float>(site.u_iso * 78.9568); // U_iso to B_iso approx
-        s.atoms.push_back(a);
+    if (structures.empty()) {
+        throw std::runtime_error("No atomic sites in CIF file");
     }
-
-    s.compute_bonds();
-    return s;
+    return structures;
 }
 
 core::Structure StructureLoader::load_xyz(const std::filesystem::path& path) {
@@ -214,7 +230,7 @@ core::Structure StructureLoader::load_xyz(const std::filesystem::path& path) {
         s.trajectory_frames.push_back(std::move(frame_positions));
     }
 
-    s.compute_bonds();
+    s.compute_bonds(0.28f, false);
     return s;
 }
 
@@ -309,7 +325,7 @@ core::Structure StructureLoader::load_poscar(const std::filesystem::path& path) 
         }
     }
 
-    s.compute_bonds();
+    s.prepare_crystal_display();
     return s;
 }
 

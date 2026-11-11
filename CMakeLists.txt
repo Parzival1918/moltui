@@ -11,6 +11,7 @@ find_package(gemmi REQUIRED)
 find_package(ftxui REQUIRED)
 find_package(glm REQUIRED)
 find_package(CLI11 REQUIRED)
+find_package(Threads REQUIRED)
 
 # moltui core library
 add_library(moltui_core
@@ -39,6 +40,7 @@ target_link_libraries(moltui_core PUBLIC
     ftxui::component
     glm::glm
     CLI11::CLI11
+    Threads::Threads
 )
 
 target_compile_options(moltui_core PRIVATE

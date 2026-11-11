@@ -28,6 +28,35 @@ public:
         return false;
     }
 
+    inline void blend_and_set(
+        int x,
+        int y,
+        float depth,
+        const glm::u8vec3& color,
+        float coverage,
+        int atom_id = -1
+    ) {
+        if (x < 0 || x >= width_ || y < 0 || y >= height_) return;
+        if (coverage >= 0.999f) {
+            test_and_set(x, y, depth, color, atom_id);
+            return;
+        }
+        if (coverage <= 0.001f) return;
+        size_t idx = static_cast<size_t>(y * width_ + x);
+        if (depth < depth_buffer_[idx]) {
+            const glm::u8vec3& bg = color_buffer_[idx];
+            color_buffer_[idx] = glm::u8vec3(
+                static_cast<uint8_t>(bg.r + coverage * (static_cast<float>(color.r) - bg.r)),
+                static_cast<uint8_t>(bg.g + coverage * (static_cast<float>(color.g) - bg.g)),
+                static_cast<uint8_t>(bg.b + coverage * (static_cast<float>(color.b) - bg.b))
+            );
+            if (coverage >= 0.5f) {
+                depth_buffer_[idx] = depth;
+                atom_id_buffer_[idx] = atom_id;
+            }
+        }
+    }
+
     const glm::u8vec3& get_color(int x, int y) const {
         return color_buffer_[y * width_ + x];
     }

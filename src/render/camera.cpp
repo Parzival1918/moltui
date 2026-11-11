@@ -1,6 +1,7 @@
 #include "moltui/render/camera.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <cmath>
 
 namespace moltui::render {
 
@@ -10,9 +11,52 @@ Camera::Camera() {
 
 void Camera::reset(const glm::vec3& center, float radius) {
     target_ = center;
+    pan_offset_ = glm::vec2(0.0f);
     distance_ = std::max(2.5f * radius, 5.0f);
     initial_distance_ = distance_;
+    ortho_half_height_ = std::max(radius * 1.06f, 0.75f);
     orientation_ = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+}
+
+void Camera::fit_extent(
+    const glm::vec3& center,
+    const std::vector<glm::vec3>& points,
+    const std::vector<float>& radii,
+    bool expand_only
+) {
+    if (points.empty()) return;
+
+    if (!expand_only) {
+        target_ = center;
+        pan_offset_ = glm::vec2(0.0f);
+    }
+
+    glm::mat3 rot = glm::mat3_cast(orientation_);
+    float reach_x = 0.1f;
+    float reach_y = 0.1f;
+    float max_r = 0.5f;
+
+    for (size_t i = 0; i < points.size(); ++i) {
+        float r = (i < radii.size()) ? radii[i] : 0.0f;
+        glm::vec3 d = points[i] - target_;
+        glm::vec3 p = rot * d;
+        reach_x = std::max(reach_x, std::abs(p.x) + r);
+        reach_y = std::max(reach_y, std::abs(p.y) + r);
+        max_r = std::max(max_r, glm::length(d) + r);
+    }
+
+    float aspect = static_cast<float>(width_) / static_cast<float>(std::max(1, height_));
+    constexpr float kMargin = 1.06f;
+    float needed_h = std::max(reach_y, reach_x / std::max(aspect, 0.1f)) * kMargin;
+    needed_h = std::max(needed_h, 0.5f);
+
+    if (expand_only) {
+        ortho_half_height_ = std::max(ortho_half_height_, needed_h);
+    } else {
+        ortho_half_height_ = needed_h;
+        distance_ = std::max(2.5f * max_r, 5.0f);
+        initial_distance_ = distance_;
+    }
 }
 
 void Camera::rotate(float delta_x, float delta_y) {
@@ -24,19 +68,14 @@ void Camera::rotate(float delta_x, float delta_y) {
 }
 
 void Camera::pan(float delta_x, float delta_y) {
-    float pan_speed = distance_ * 0.002f;
-    glm::mat4 rot = glm::mat4_cast(glm::conjugate(orientation_));
-    glm::vec3 right = glm::vec3(rot[0]);
-    glm::vec3 up = glm::vec3(rot[1]);
-
-    target_ -= right * (delta_x * pan_speed);
-    target_ += up * (delta_y * pan_speed);
+    float pan_speed = orthographic ? (ortho_half_height_ * 0.004f) : (distance_ * 0.002f);
+    pan_offset_.x += delta_x * pan_speed;
+    pan_offset_.y += delta_y * pan_speed;
 }
 
 void Camera::zoom(float factor) {
-    distance_ *= factor;
-    if (distance_ < 0.5f) distance_ = 0.5f;
-    if (distance_ > 1000.0f) distance_ = 1000.0f;
+    distance_ = std::clamp(distance_ * factor, 0.5f, 1000.0f);
+    ortho_half_height_ = std::clamp(ortho_half_height_ * factor, 0.25f, 500.0f);
 }
 
 void Camera::set_viewport(int width, int height) {
@@ -44,8 +83,12 @@ void Camera::set_viewport(int width, int height) {
     height_ = std::max(1, height);
 }
 
+float Camera::pixels_per_world() const {
+    return static_cast<float>(height_) / (2.0f * std::max(ortho_half_height_, 1e-4f));
+}
+
 glm::mat4 Camera::view_matrix() const {
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -distance_));
+    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(pan_offset_.x, pan_offset_.y, -distance_));
     view *= glm::mat4_cast(orientation_);
     view = glm::translate(view, -target_);
     return view;
@@ -54,9 +97,9 @@ glm::mat4 Camera::view_matrix() const {
 glm::mat4 Camera::projection_matrix() const {
     float aspect = static_cast<float>(width_) / static_cast<float>(height_);
     if (orthographic) {
-        float h = distance_ * 0.5f;
+        float h = ortho_half_height_;
         float w = h * aspect;
-        return glm::ortho(-w, w, -h, h, near_clip_, far_clip_);
+        return glm::ortho(-w, w, -h, h, -500.0f, 500.0f);
     } else {
         return glm::perspective(glm::radians(fov_degrees_), aspect, near_clip_, far_clip_);
     }
