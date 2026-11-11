@@ -1,0 +1,6 @@
+build/
+.pixi/
+compile_commands.json
+*.o
+*.a
+.DS_Store

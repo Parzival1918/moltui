@@ -1,0 +1,21 @@
+[workspace]
+authors = ["Pedro Juan Royo <pedro.juan.royo@gmail.com>"]
+channels = ["conda-forge"]
+name = "moltui"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+configure = "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"
+build = { cmd = "cmake --build build", depends-on = ["configure"] }
+run = { cmd = "./build/moltui", depends-on = ["build"] }
+test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"] }
+
+[dependencies]
+cxx-compiler = ">=2.0.0,<3"
+cmake = ">=4.4.5,<5"
+ninja = ">=1.13.2,<2"
+gemmi = ">=0.7.5,<0.8"
+ftxui = ">=7.0.3,<8"
+glm = ">=1.0.3,<2"
+cli11 = ">=2.7.2,<3"
