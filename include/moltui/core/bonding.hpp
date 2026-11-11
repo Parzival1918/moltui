@@ -11,7 +11,7 @@ public:
     static std::vector<Bond> compute_bonds(
         const std::vector<Atom>& atoms,
         const std::optional<UnitCell>& cell = std::nullopt,
-        float tolerance = 0.45f
+        float tolerance = 0.28f
     );
 };
 

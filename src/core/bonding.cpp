@@ -1,6 +1,7 @@
 #include "moltui/core/bonding.hpp"
 #include "moltui/core/elements.hpp"
 #include <unordered_map>
+#include <algorithm>
 #include <cmath>
 #include <glm/geometric.hpp>
 
@@ -24,6 +25,22 @@ struct GridCoordHash {
     }
 };
 
+int get_max_valence(std::string_view elem) {
+    if (elem == "H") return 1;
+    if (elem == "O" || elem == "S") return 3; // allow hydronium/sulfonium
+    if (elem == "N" || elem == "P") return 4; // quaternary ammonium/phosphine
+    if (elem == "C" || elem == "Si") return 4;
+    if (elem == "F" || elem == "Cl" || elem == "Br" || elem == "I") return 1;
+    return 12; // metals/coordination complexes
+}
+
+struct CandidateBond {
+    size_t atom1;
+    size_t atom2;
+    float dist;
+    glm::ivec3 cell_offset;
+};
+
 } // namespace
 
 std::vector<Bond> BondPerceiver::compute_bonds(
@@ -31,8 +48,8 @@ std::vector<Bond> BondPerceiver::compute_bonds(
     const std::optional<UnitCell>& cell,
     float tolerance
 ) {
-    std::vector<Bond> bonds;
-    if (atoms.size() < 2) return bonds;
+    std::vector<Bond> final_bonds;
+    if (atoms.size() < 2) return final_bonds;
 
     const float cell_size = 3.5f;
     std::unordered_map<GridCoord, std::vector<size_t>, GridCoordHash> grid;
@@ -47,7 +64,8 @@ std::vector<Bond> BondPerceiver::compute_bonds(
         grid[gc].push_back(i);
     }
 
-    const float min_dist_sq = 0.4f * 0.4f;
+    const float min_dist_sq = 0.45f * 0.45f;
+    std::vector<CandidateBond> candidates;
 
     for (size_t i = 0; i < atoms.size(); ++i) {
         if (!atoms[i].visible) continue;
@@ -78,7 +96,7 @@ std::vector<Bond> BondPerceiver::compute_bonds(
                         float dist_sq = glm::dot(diff, diff);
 
                         if (dist_sq >= min_dist_sq && dist_sq <= max_dist_sq) {
-                            bonds.push_back(Bond{i, j, 1.0f, {0, 0, 0}});
+                            candidates.push_back({i, j, std::sqrt(dist_sq), {0, 0, 0}});
                         }
                     }
                 }
@@ -86,9 +104,8 @@ std::vector<Bond> BondPerceiver::compute_bonds(
         }
     }
 
-    // In periodic crystals, if requested, check for periodic boundary crossing bonds
-    if (cell.has_value() && bonds.empty() && atoms.size() < 2000) {
-        // Fallback check for periodic image neighbors if atoms are close across unit cell boundary
+    // In periodic crystals, check for periodic boundary crossing bonds
+    if (cell.has_value() && atoms.size() < 2500) {
         for (size_t i = 0; i < atoms.size(); ++i) {
             float r1 = ElementTable::get_covalent_radius(atoms[i].element);
             for (size_t j = i + 1; j < atoms.size(); ++j) {
@@ -96,25 +113,44 @@ std::vector<Bond> BondPerceiver::compute_bonds(
                 float max_dist = r1 + r2 + tolerance;
 
                 glm::vec3 frac_diff = atoms[j].frac_pos - atoms[i].frac_pos;
-                // Minimum image convention
                 glm::vec3 pbc_shift = glm::round(frac_diff);
+                if (pbc_shift == glm::vec3(0.0f)) continue; // already handled by spatial grid
+
                 glm::vec3 min_image_frac = frac_diff - pbc_shift;
                 glm::vec3 min_image_cart = cell->fractional_to_cartesian(min_image_frac);
                 float dist = glm::length(min_image_cart);
 
-                if (dist >= 0.4f && dist <= max_dist) {
+                if (dist >= 0.45f && dist <= max_dist) {
                     glm::ivec3 cell_offset(
                         static_cast<int>(pbc_shift.x),
                         static_cast<int>(pbc_shift.y),
                         static_cast<int>(pbc_shift.z)
                     );
-                    bonds.push_back(Bond{i, j, 1.0f, cell_offset});
+                    candidates.push_back({i, j, dist, cell_offset});
                 }
             }
         }
     }
 
-    return bonds;
+    // Sort candidate bonds by distance (shortest/strongest bonds first)
+    std::sort(candidates.begin(), candidates.end(), [](const CandidateBond& a, const CandidateBond& b) {
+        return a.dist < b.dist;
+    });
+
+    // Enforce valence limits to prevent spurious cross-ring connections
+    std::vector<int> valence_counts(atoms.size(), 0);
+    for (const auto& cb : candidates) {
+        int max_v1 = get_max_valence(atoms[cb.atom1].element);
+        int max_v2 = get_max_valence(atoms[cb.atom2].element);
+
+        if (valence_counts[cb.atom1] < max_v1 && valence_counts[cb.atom2] < max_v2) {
+            valence_counts[cb.atom1]++;
+            valence_counts[cb.atom2]++;
+            final_bonds.push_back(Bond{cb.atom1, cb.atom2, 1.0f, cb.cell_offset});
+        }
+    }
+
+    return final_bonds;
 }
 
 } // namespace moltui::core

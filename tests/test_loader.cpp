@@ -8,13 +8,13 @@ int main() {
     std::cout << "[Test] Loading caffeine.xyz... ";
     auto caffeine = StructureLoader::load_file("tests/data/caffeine.xyz");
     assert(caffeine.atoms.size() == 24);
-    assert(!caffeine.bonds.empty());
+    assert(caffeine.bonds.size() == 25);
     std::cout << "PASSED (" << caffeine.atoms.size() << " atoms, " << caffeine.bonds.size() << " bonds)\n";
 
     std::cout << "[Test] Loading benzene.xyz... ";
     auto benzene = StructureLoader::load_file("tests/data/benzene.xyz");
     assert(benzene.atoms.size() == 12);
-    assert(!benzene.bonds.empty());
+    assert(benzene.bonds.size() == 12);
     std::cout << "PASSED (" << benzene.atoms.size() << " atoms, " << benzene.bonds.size() << " bonds)\n";
 
     std::cout << "[Test] Loading nacl.cif... ";

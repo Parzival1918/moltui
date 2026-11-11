@@ -55,7 +55,7 @@ public:
     const Bounds& get_bounds() const;
 
     // Bonding heuristics
-    void compute_bonds(float tolerance = 0.45f);
+    void compute_bonds(float tolerance = 0.28f);
 
     // Periodic Boundary Operations
     bool is_periodic() const { return unit_cell.has_value(); }

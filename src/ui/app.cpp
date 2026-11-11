@@ -342,7 +342,7 @@ void App::run() {
             status_message_ = "Selections cleared.";
             return true;
         }
-        if (event == ftxui::Event::Character('h') || event == ftxui::Event::Character('?')) {
+        if (event == ftxui::Event::Character('?') || event == ftxui::Event::F1) {
             show_help_ = !show_help_;
             return true;
         }
@@ -371,11 +371,11 @@ void App::run() {
             return true;
         }
 
-        // Camera keyboard controls
-        if (event == ftxui::Event::Character('h')) { camera_.rotate(-2.0f, 0.0f); return true; }
-        if (event == ftxui::Event::Character('l')) { camera_.rotate(2.0f, 0.0f); return true; }
-        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 2.0f); return true; }
-        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -2.0f); return true; }
+        // Camera keyboard controls (Vim navigation hjkl)
+        if (event == ftxui::Event::Character('h')) { camera_.rotate(-6.0f, 0.0f); return true; }
+        if (event == ftxui::Event::Character('l')) { camera_.rotate(6.0f, 0.0f); return true; }
+        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 6.0f); return true; }
+        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -6.0f); return true; }
         if (event == ftxui::Event::Character('+') || event == ftxui::Event::Character('=')) {
             camera_.zoom(0.9f);
             return true;
@@ -413,7 +413,7 @@ void App::run() {
             bottom_bar = hbox({
                 text(" " + status_message_ + " ") | color(Color::RGB(220, 225, 235)),
                 filler(),
-                text(" [u]nwrap [s]tyle [c]ell [m]easure [r]eset [h]elp [:]cmd [q]uit ") |
+                text(" [u]nwrap [s]tyle [c]ell [m]easure [r]eset [?]help [:]cmd [q]uit ") |
                     color(Color::RGB(120, 140, 160))
             }) | bgcolor(Color::RGB(24, 28, 40));
         }
@@ -425,27 +425,31 @@ void App::run() {
         });
 
         if (show_help_) {
-            auto help_box = window(
-                text(" MolTUI Quick Reference ") | bold | color(Color::White),
-                vbox({
-                    text("Mouse:"),
-                    text("  Left-Click + Drag   : Trackball 3D rotation") | color(Color::RGB(180, 220, 255)),
-                    text("  Right-Click / Shift : Screen pan") | color(Color::RGB(180, 220, 255)),
-                    text("  Scroll Wheel        : Zoom in / out") | color(Color::RGB(180, 220, 255)),
-                    text("  Left-Click on Atom  : Pick atom for measurements") | color(Color::RGB(180, 220, 255)),
-                    separator(),
-                    text("Keybindings:"),
-                    text("  u                   : Toggle periodic boundary unwrapping (Make Whole)") | color(Color::RGB(120, 240, 140)),
-                    text("  s                   : Cycle representation (Ball&Stick, VDW, Licorice, Wire)") | color(Color::RGB(240, 220, 120)),
-                    text("  c / b               : Toggle unit cell wireframe / bonds") | color(Color::RGB(200, 200, 200)),
-                    text("  m                   : Clear measurements") | color(Color::RGB(200, 200, 200)),
-                    text("  r                   : Reset camera view") | color(Color::RGB(200, 200, 200)),
-                    text("  Space / [ / ]       : Trajectory play/pause, prev/next frame") | color(Color::RGB(200, 200, 200)),
-                    text("  :                   : Enter command mode (:cell 2 2 2, :hkl 1 1 1, :load, :q)") | color(Color::RGB(255, 180, 100)),
-                    text("  h / ?               : Toggle this help") | color(Color::RGB(200, 200, 200)),
-                    text("  q / Esc             : Quit") | color(Color::RGB(255, 100, 100)),
-                })
-            ) | bgcolor(Color::RGB(16, 20, 30)) | border | center;
+            auto help_box = clear_under(
+                window(
+                    text(" MolTUI Quick Reference ") | bold | color(Color::White),
+                    vbox({
+                        text(" Mouse Controls ") | bold | color(Color::RGB(255, 200, 40)),
+                        text("   Left-Click + Drag    : Trackball 3D rotation") | color(Color::RGB(190, 220, 255)),
+                        text("   Right-Click / Shift  : Screen pan") | color(Color::RGB(190, 220, 255)),
+                        text("   Scroll Wheel         : Zoom in / out") | color(Color::RGB(190, 220, 255)),
+                        text("   Left-Click on Atom   : Pick atom for measurements") | color(Color::RGB(190, 220, 255)),
+                        separator() | color(Color::RGB(60, 70, 95)),
+                        text(" Keybindings ") | bold | color(Color::RGB(255, 200, 40)),
+                        text("   h / j / k / l        : Rotate left / down / up / right") | color(Color::RGB(240, 220, 120)),
+                        text("   + / -                : Zoom in / out") | color(Color::RGB(240, 220, 120)),
+                        text("   u                    : Toggle PBC unwrapping (Make Whole)") | color(Color::RGB(120, 240, 140)),
+                        text("   s                    : Cycle representation (Ball&Stick, VDW, Licorice, Wire)") | color(Color::RGB(200, 215, 235)),
+                        text("   c / b                : Toggle unit cell wireframe / bonds") | color(Color::RGB(200, 215, 235)),
+                        text("   m                    : Clear active measurements") | color(Color::RGB(200, 215, 235)),
+                        text("   r                    : Reset camera view") | color(Color::RGB(200, 215, 235)),
+                        text("   Space / [ / ]        : Trajectory play/pause, prev/next frame") | color(Color::RGB(200, 215, 235)),
+                        text("   :                    : Command mode (:cell 2 2 2, :hkl 1 1 1, :load, :q)") | color(Color::RGB(255, 180, 100)),
+                        text("   ?                    : Toggle this help") | color(Color::RGB(200, 215, 235)),
+                        text("   q / Esc              : Quit") | color(Color::RGB(255, 110, 110)),
+                    }) | bgcolor(Color::RGB(20, 24, 36))
+                ) | bgcolor(Color::RGB(20, 24, 36)) | color(Color::RGB(120, 150, 195))
+            ) | center;
 
             return dbox({layout, help_box});
         }

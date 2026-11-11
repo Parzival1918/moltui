@@ -16,11 +16,11 @@ void Camera::reset(const glm::vec3& center, float radius) {
 }
 
 void Camera::rotate(float delta_x, float delta_y) {
-    // Arcball rotation
-    float sens = 0.01f;
-    glm::quat rot_y = glm::angleAxis(delta_x * sens, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Screen-space camera-relative trackball rotation
+    float sens = 0.008f;
     glm::quat rot_x = glm::angleAxis(delta_y * sens, glm::vec3(1.0f, 0.0f, 0.0f));
-    orientation_ = glm::normalize(rot_y * orientation_ * rot_x);
+    glm::quat rot_y = glm::angleAxis(delta_x * sens, glm::vec3(0.0f, 1.0f, 0.0f));
+    orientation_ = glm::normalize(rot_x * rot_y * orientation_);
 }
 
 void Camera::pan(float delta_x, float delta_y) {

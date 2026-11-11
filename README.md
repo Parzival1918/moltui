@@ -84,6 +84,8 @@ pixi run moltui tests/data/caffeine.xyz --snapshot
 ### Keybindings
 | Key | Action |
 |---|---|
+| `h` / `j` / `k` / `l` | Rotate camera view (Left / Down / Up / Right) |
+| `+` / `-` | Zoom in / out |
 | `u` | Toggle periodic boundary unwrapping (**Make Whole**) |
 | `s` | Cycle rendering style (Ball-and-stick $\to$ VDW $\to$ Licorice $\to$ Wireframe) |
 | `c` | Toggle unit cell wireframe box |
@@ -93,7 +95,7 @@ pixi run moltui tests/data/caffeine.xyz --snapshot
 | `Space` | Play / Pause multi-frame trajectory |
 | `[` / `]` | Previous / Next trajectory frame |
 | `:` | Enter command mode |
-| `h` or `?` | Toggle help overlay |
+| `?` or `F1` | Toggle help overlay |
 | `q` or `Esc` | Quit |
 
 ### Command Mode (`:`)
