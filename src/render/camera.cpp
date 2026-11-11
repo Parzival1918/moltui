@@ -22,13 +22,16 @@ void Camera::fit_extent(
     const glm::vec3& center,
     const std::vector<glm::vec3>& points,
     const std::vector<float>& radii,
-    bool expand_only
+    bool expand_only,
+    bool reset_pan_offset
 ) {
     if (points.empty()) return;
 
     if (!expand_only) {
         target_ = center;
-        pan_offset_ = glm::vec2(0.0f);
+        if (reset_pan_offset) {
+            pan_offset_ = glm::vec2(0.0f);
+        }
     }
 
     glm::mat3 rot = glm::mat3_cast(orientation_);
@@ -57,6 +60,40 @@ void Camera::fit_extent(
         distance_ = std::max(2.5f * max_r, 5.0f);
         initial_distance_ = distance_;
     }
+}
+
+void Camera::look_along(const glm::vec3& view_dir, const glm::vec3& up_hint) {
+    float len = glm::length(view_dir);
+    if (len < 1e-6f) return;
+    glm::vec3 w = view_dir / len;
+
+    glm::vec3 hint = up_hint;
+    if (glm::length(hint) < 1e-6f) {
+        hint = glm::vec3(0.0f, 1.0f, 0.0f);
+    }
+    glm::vec3 right = glm::cross(hint, w);
+    if (glm::length(right) < 1e-5f) {
+        // Fallback to cardinal axis least parallel to w
+        glm::vec3 abs_w = glm::abs(w);
+        if (abs_w.x <= abs_w.y && abs_w.x <= abs_w.z) {
+            hint = glm::vec3(1.0f, 0.0f, 0.0f);
+        } else if (abs_w.y <= abs_w.z) {
+            hint = glm::vec3(0.0f, 1.0f, 0.0f);
+        } else {
+            hint = glm::vec3(0.0f, 0.0f, 1.0f);
+        }
+        right = glm::cross(hint, w);
+    }
+    right = glm::normalize(right);
+    glm::vec3 up = glm::normalize(glm::cross(w, right));
+
+    // Rows of rotation matrix R are (right, up, w)
+    glm::mat3 R(
+        glm::vec3(right.x, up.x, w.x),
+        glm::vec3(right.y, up.y, w.y),
+        glm::vec3(right.z, up.z, w.z)
+    );
+    orientation_ = glm::normalize(glm::quat_cast(R));
 }
 
 void Camera::rotate(float delta_x, float delta_y) {

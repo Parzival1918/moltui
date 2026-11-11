@@ -57,7 +57,8 @@ std::pair<int, int> query_kitty_pixel_size(int cols, int rows, bool draft) {
 void fit_camera_to_structure(
     const core::Structure& structure,
     render::Camera& camera,
-    const render::RasterizerSettings& settings
+    const render::RasterizerSettings& settings,
+    bool reset_pan_offset
 ) {
     std::vector<glm::vec3> pts;
     std::vector<float> radii;
@@ -92,7 +93,7 @@ void fit_camera_to_structure(
     }
 
     if (!pts.empty()) {
-        camera.fit_extent(structure.center_of_mass(), pts, radii, false);
+        camera.fit_extent(structure.center_of_mass(), pts, radii, false, reset_pan_offset);
     }
 }
 
@@ -108,6 +109,7 @@ public:
         render::TerminalGraphicsMode graphics_mode,
         bool& scene_dirty,
         bool& needs_initial_fit,
+        bool& refit_reset_pan,
         bool use_draft,
         bool& viewport_drawn,
         bool& kitty_image_dirty,
@@ -121,6 +123,7 @@ public:
         graphics_mode_(graphics_mode),
         scene_dirty_(scene_dirty),
         needs_initial_fit_(needs_initial_fit),
+        refit_reset_pan_(refit_reset_pan),
         use_draft_(use_draft),
         viewport_drawn_(viewport_drawn),
         kitty_image_dirty_(kitty_image_dirty),
@@ -157,8 +160,9 @@ public:
 
         camera_.set_viewport(pixel_w, pixel_h);
         if (needs_initial_fit_) {
-            fit_camera_to_structure(structure_, camera_, rasterizer_.settings());
+            fit_camera_to_structure(structure_, camera_, rasterizer_.settings(), refit_reset_pan_);
             needs_initial_fit_ = false;
+            refit_reset_pan_ = true;
             scene_dirty_ = true;
         }
 
@@ -226,6 +230,7 @@ private:
     render::TerminalGraphicsMode graphics_mode_;
     bool& scene_dirty_;
     bool& needs_initial_fit_;
+    bool& refit_reset_pan_;
     bool use_draft_;
     bool& viewport_drawn_;
     bool& kitty_image_dirty_;
@@ -262,11 +267,19 @@ ftxui::Element MolViewport::OnRender() {
         graphics_mode_,
         scene_dirty_,
         needs_initial_fit_,
+        refit_reset_pan_,
         adaptive_quality_ && draft_mode_,
         viewport_drawn_,
         kitty_image_dirty_,
         on_frame_rendered_
     ) | ftxui::reflect(box_);
+}
+
+void MolViewport::set_graphics_mode(render::TerminalGraphicsMode mode) {
+    if (graphics_mode_ == mode) return;
+    graphics_mode_ = mode;
+    draft_mode_ = false;
+    scene_dirty_ = true;
 }
 
 void MolViewport::set_adaptive_quality(bool enabled) {

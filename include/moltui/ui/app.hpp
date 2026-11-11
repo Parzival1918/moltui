@@ -8,7 +8,9 @@
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace moltui::ui {
@@ -46,8 +48,15 @@ private:
     bool command_mode_{false};
     bool quit_requested_{false};
     bool refit_requested_{false};
+    bool refit_reset_pan_{true};
     bool adaptive_quality_{true};
     std::string command_buffer_{""};
+    std::vector<std::string> command_history_;
+    size_t history_cursor_{0};
+    std::string history_draft_;
+    std::string active_axis_key_;
+    bool active_axis_flipped_{false};
+    glm::quat last_aimed_orientation_{1.0f, 0.0f, 0.0f, 0.0f};
     std::string status_message_{"Ready. Type : for command mode, ? for help."};
 
     // Trajectory animation
@@ -60,6 +69,8 @@ private:
     void cycle_style();
     void toggle_shading();
     void step_ensemble(int delta);
+    bool aim_along(std::string_view expr);
+    void aim_axis_shortcut(char key);
     
     // Measurement calculation helpers
     std::string format_measurements() const;

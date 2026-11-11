@@ -38,8 +38,13 @@ public:
     void trigger_rerender();
 
     render::TerminalGraphicsMode graphics_mode() const { return graphics_mode_; }
+    void set_graphics_mode(render::TerminalGraphicsMode mode);
     void mark_scene_dirty() { scene_dirty_ = true; }
-    void request_refit() { needs_initial_fit_ = true; scene_dirty_ = true; }
+    void request_refit(bool reset_pan = true) {
+        needs_initial_fit_ = true;
+        refit_reset_pan_ = reset_pan;
+        scene_dirty_ = true;
+    }
     void set_adaptive_quality(bool enabled);
     bool adaptive_quality() const { return adaptive_quality_; }
     void set_draft_mode(bool draft);
@@ -71,6 +76,7 @@ private:
     int render_height_{40};
     bool scene_dirty_{true};
     bool needs_initial_fit_{true};
+    bool refit_reset_pan_{true};
     bool adaptive_quality_{true};
     bool draft_mode_{false};
     bool viewport_drawn_{false};

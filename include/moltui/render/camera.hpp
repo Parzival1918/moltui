@@ -17,8 +17,10 @@ public:
         const glm::vec3& center,
         const std::vector<glm::vec3>& points,
         const std::vector<float>& radii,
-        bool expand_only = false
+        bool expand_only = false,
+        bool reset_pan_offset = true
     );
+    void look_along(const glm::vec3& view_dir, const glm::vec3& up_hint);
     void rotate(float delta_x, float delta_y); // Arcball drag
     void pan(float delta_x, float delta_y);    // Screen-space pan
     void zoom(float factor);                  // Distance / scale
@@ -43,6 +45,7 @@ public:
 
     float ortho_half_height() const { return ortho_half_height_; }
     float fov_degrees() const { return fov_degrees_; }
+    const glm::quat& orientation() const { return orientation_; }
 
     bool orthographic{true};
 

@@ -122,6 +122,20 @@ void test_rasterizer_cylinder_and_shading() {
     assert(std::abs(screen_before.x - screen_after.x) < 1e-3f);
     assert(std::abs(screen_before.y - screen_after.y) < 1e-3f);
 
+    // Test Camera::look_along puts requested view_dir pointing toward +z (viewer)
+    cam.reset(glm::vec3(0.0f), 3.0f);
+    cam.look_along(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::vec3 view_x = glm::vec3(cam.view_matrix() * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    assert(std::abs(view_x.x) < 1e-4f);
+    assert(std::abs(view_x.y) < 1e-4f);
+    assert(view_x.z > 0.999f);
+
+    cam.look_along(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 view_neg_y = glm::vec3(cam.view_matrix() * glm::vec4(0.0f, -1.0f, 0.0f, 0.0f));
+    assert(std::abs(view_neg_y.x) < 1e-4f);
+    assert(std::abs(view_neg_y.y) < 1e-4f);
+    assert(view_neg_y.z > 0.999f);
+
     std::cout << "PASSED\n";
 }
 

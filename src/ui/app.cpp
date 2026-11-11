@@ -7,6 +7,9 @@
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <glm/geometric.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
+#include <algorithm>
+#include <cctype>
 #include <condition_variable>
 #include <iomanip>
 #include <iostream>
@@ -70,7 +73,10 @@ App::App(std::vector<core::Structure> structures, render::TerminalGraphicsMode g
 void App::setup_camera() {
     const auto& bounds = structure_.get_bounds();
     camera_.reset(structure_.center_of_mass(), bounds.radius);
+    active_axis_key_.clear();
+    active_axis_flipped_ = false;
     refit_requested_ = true;
+    refit_reset_pan_ = true;
 }
 
 void App::on_atom_picked(int atom_id) {
@@ -246,14 +252,217 @@ void App::step_ensemble(int delta) {
     }
 }
 
+bool App::aim_along(std::string_view expr) {
+    auto trim = [](std::string_view sv) {
+        size_t start = sv.find_first_not_of(" \t\r\n");
+        if (start == std::string_view::npos) return std::string_view{};
+        size_t end = sv.find_last_not_of(" \t\r\n");
+        return sv.substr(start, end - start + 1);
+    };
+
+    std::string raw;
+    for (unsigned char ch : trim(expr)) {
+        raw.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    if (raw.empty()) {
+        status_message_ = "Usage: :view <x|y|z|a|b|c|a*|b*|c*|[uvw]|(hkl)>";
+        return false;
+    }
+
+    float sign = 1.0f;
+    if (raw.front() == '-') {
+        sign = -1.0f;
+        raw.erase(raw.begin());
+    } else if (raw.front() == '+') {
+        raw.erase(raw.begin());
+    }
+
+    glm::vec3 view_dir(0.0f);
+    glm::vec3 up_hint(0.0f, 1.0f, 0.0f);
+    std::string label;
+    bool is_crystal_vec = false;
+    bool is_reciprocal = false;
+
+    auto set_cartesian = [&](int axis) {
+        glm::vec3 d(0.0f);
+        d[axis] = sign;
+        view_dir = d;
+        if (axis == 1) {
+            up_hint = (sign > 0.0f) ? glm::vec3(0.0f, 0.0f, -1.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+        } else {
+            up_hint = glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        const char* names[3] = {"x", "y", "z"};
+        label = std::string(sign < 0.0f ? "-" : "+") + names[axis];
+    };
+
+    if (raw == "x") {
+        set_cartesian(0);
+    } else if (raw == "y") {
+        set_cartesian(1);
+    } else if (raw == "z") {
+        set_cartesian(2);
+    } else if (raw == "a" || raw == "b" || raw == "c" ||
+               raw == "a*" || raw == "b*" || raw == "c*") {
+        if (!structure_.unit_cell.has_value()) {
+            status_message_ = "Structure is not periodic (no unit cell). Use x, y, or z.";
+            return false;
+        }
+        is_crystal_vec = true;
+        is_reciprocal = (raw.size() == 2 && raw[1] == '*');
+        int idx = (raw[0] == 'a') ? 0 : (raw[0] == 'b' ? 1 : 2);
+        glm::vec3 indices(0.0f);
+        indices[idx] = sign;
+        const auto& cell = *structure_.unit_cell;
+        view_dir = is_reciprocal
+            ? (glm::transpose(cell.frac_matrix) * indices)
+            : (cell.orth_matrix * indices);
+        label = std::string(sign < 0.0f ? "-" : "+") + raw;
+    } else {
+        std::string inner = raw;
+        if (inner.size() >= 2 && inner.front() == '(' && inner.back() == ')') {
+            is_reciprocal = true;
+            inner = inner.substr(1, inner.size() - 2);
+        } else if (inner.size() >= 2 && inner.front() == '[' && inner.back() == ']') {
+            inner = inner.substr(1, inner.size() - 2);
+        }
+        for (char& ch : inner) {
+            if (ch == ',' || ch == ';') ch = ' ';
+        }
+        std::istringstream vss(inner);
+        float i0 = 0.0f, i1 = 0.0f, i2 = 0.0f;
+        if (!(vss >> i0 >> i1 >> i2)) {
+            // Try compact crystallographic form like "110" or "1-10"
+            std::vector<int> parsed;
+            for (size_t pos = 0; pos < inner.size();) {
+                if (std::isspace(static_cast<unsigned char>(inner[pos]))) {
+                    ++pos;
+                    continue;
+                }
+                int s = 1;
+                if (inner[pos] == '-') {
+                    s = -1;
+                    ++pos;
+                } else if (inner[pos] == '+') {
+                    ++pos;
+                }
+                if (pos >= inner.size() || !std::isdigit(static_cast<unsigned char>(inner[pos]))) {
+                    parsed.clear();
+                    break;
+                }
+                parsed.push_back(s * (inner[pos] - '0'));
+                ++pos;
+            }
+            if (parsed.size() != 3) {
+                status_message_ = "Invalid view direction: " + std::string(expr);
+                return false;
+            }
+            i0 = static_cast<float>(parsed[0]);
+            i1 = static_cast<float>(parsed[1]);
+            i2 = static_cast<float>(parsed[2]);
+        }
+
+        glm::vec3 indices = sign * glm::vec3(i0, i1, i2);
+        if (glm::length(indices) < 1e-6f) {
+            status_message_ = "View direction must be non-zero.";
+            return false;
+        }
+        if (structure_.unit_cell.has_value()) {
+            is_crystal_vec = true;
+            const auto& cell = *structure_.unit_cell;
+            view_dir = is_reciprocal
+                ? (glm::transpose(cell.frac_matrix) * indices)
+                : (cell.orth_matrix * indices);
+        } else {
+            view_dir = indices;
+            up_hint = (std::abs(indices.x) < 1e-4f && std::abs(indices.z) < 1e-4f)
+                ? glm::vec3(0.0f, 0.0f, (indices.y > 0.0f) ? -1.0f : 1.0f)
+                : glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        label = std::string(expr);
+    }
+
+    if (is_crystal_vec && structure_.unit_cell.has_value()) {
+        // Choose cell vector most perpendicular to view_dir as screen-up (prefer b, then a, then c)
+        const auto& M = structure_.unit_cell->orth_matrix;
+        glm::vec3 w = glm::normalize(view_dir);
+        const int order[3] = {1, 0, 2};
+        float best_cos = 1e9f;
+        for (int idx : order) {
+            glm::vec3 vec = M[idx];
+            float len = glm::length(vec);
+            if (len < 1e-6f) continue;
+            float c = std::abs(glm::dot(vec / len, w));
+            if (c < best_cos - 1e-4f) {
+                best_cos = c;
+                up_hint = vec / len;
+            }
+        }
+    }
+
+    camera_.look_along(view_dir, up_hint);
+    last_aimed_orientation_ = camera_.orientation();
+    refit_requested_ = true;
+    refit_reset_pan_ = false;
+    status_message_ = "View along " + label;
+    return true;
+}
+
+void App::aim_axis_shortcut(char key) {
+    std::string key_str(1, key);
+    bool same_axis = (active_axis_key_ == key_str) &&
+                     (std::abs(glm::dot(camera_.orientation(), last_aimed_orientation_)) > 0.999f);
+    if (same_axis) {
+        active_axis_flipped_ = !active_axis_flipped_;
+    } else {
+        active_axis_key_ = key_str;
+        active_axis_flipped_ = false;
+    }
+
+    std::string prefix = active_axis_flipped_ ? "-" : "+";
+    if (key == 'x' || key == 'y' || key == 'z') {
+        aim_along(prefix + key_str);
+        return;
+    }
+
+    const bool has_cell = structure_.unit_cell.has_value();
+    const char* lattice_names[3] = {"a", "b", "c"};
+    const char* cart_names[3] = {"x", "y", "z"};
+    int idx = (key == '1') ? 0 : (key == '2' ? 1 : 2);
+    aim_along(prefix + (has_cell ? lattice_names[idx] : cart_names[idx]));
+}
+
 void App::execute_command(const std::string& cmd_line) {
     if (cmd_line.empty()) return;
     std::istringstream iss(cmd_line);
-    std::string cmd;
-    iss >> cmd;
+    std::string cmd_raw;
+    iss >> cmd_raw;
+    std::string cmd = cmd_raw;
+    for (char& ch : cmd) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+
+    auto parse_bool_arg = [&](bool current) -> std::optional<bool> {
+        std::string arg;
+        if (!(iss >> arg)) {
+            return !current;
+        }
+        for (char& ch : arg) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        if (arg == "on" || arg == "true" || arg == "1" || arg == "yes") return true;
+        if (arg == "off" || arg == "false" || arg == "0" || arg == "no") return false;
+        return std::nullopt;
+    };
 
     if (cmd == "q" || cmd == "quit") {
         quit_requested_ = true;
+    } else if (cmd == "help" || cmd == "?") {
+        auto val = parse_bool_arg(show_help_);
+        if (val.has_value()) {
+            show_help_ = *val;
+        } else {
+            show_help_ = !show_help_;
+        }
+        status_message_ = show_help_ ? "Help opened." : "Help closed.";
     } else if (cmd == "load") {
         std::string path;
         if (iss >> path) {
@@ -273,6 +482,8 @@ void App::execute_command(const std::string& cmd_line) {
             } catch (const std::exception& e) {
                 status_message_ = "Error loading file: " + std::string(e.what());
             }
+        } else {
+            status_message_ = "Usage: :load <filepath>";
         }
     } else if (cmd == "cell" || cmd == "supercell") {
         int nx = 1, ny = 1, nz = 1;
@@ -287,15 +498,93 @@ void App::execute_command(const std::string& cmd_line) {
             } else {
                 status_message_ = "Structure has no unit cell.";
             }
+        } else {
+            status_message_ = "Usage: :cell <nx> <ny> <nz>";
         }
     } else if (cmd == "unwrap") {
         if (!is_unwrapped_) toggle_unwrap();
     } else if (cmd == "wrap") {
         if (is_unwrapped_) toggle_unwrap();
+    } else if (cmd == "next" || cmd == "n") {
+        step_ensemble(1);
+    } else if (cmd == "prev" || cmd == "p") {
+        step_ensemble(-1);
+    } else if (cmd == "frame") {
+        size_t idx = 0;
+        if (iss >> idx && idx >= 1) {
+            if (ensemble_.size() > 1) {
+                if (idx <= ensemble_.size()) {
+                    step_ensemble(static_cast<int>(idx - 1) - static_cast<int>(ensemble_index_));
+                } else {
+                    status_message_ = "Structure index out of range (1-" + std::to_string(ensemble_.size()) + ").";
+                }
+            } else if (structure_.num_frames() > 1) {
+                if (idx <= structure_.num_frames()) {
+                    structure_.set_frame(idx - 1);
+                    status_message_ = "Frame " + std::to_string(idx) + "/" + std::to_string(structure_.num_frames());
+                } else {
+                    status_message_ = "Frame index out of range (1-" + std::to_string(structure_.num_frames()) + ").";
+                }
+            } else {
+                status_message_ = "Only 1 frame/structure loaded.";
+            }
+        } else {
+            status_message_ = "Usage: :frame <1-based-index>";
+        }
+    } else if (cmd == "play") {
+        if (structure_.num_frames() > 1) {
+            is_playing_ = true;
+            status_message_ = "Trajectory playing...";
+        } else {
+            status_message_ = "Single-frame structure (nothing to play).";
+        }
+    } else if (cmd == "pause") {
+        is_playing_ = false;
+        status_message_ = "Trajectory paused.";
+    } else if (cmd == "view" || cmd == "aim") {
+        std::string rest;
+        std::getline(iss, rest);
+        aim_along(rest);
+    } else if (cmd == "x" || cmd == "+x" || cmd == "-x" ||
+               cmd == "y" || cmd == "+y" || cmd == "-y" ||
+               cmd == "z" || cmd == "+z" || cmd == "-z" ||
+               cmd == "a" || cmd == "+a" || cmd == "-a" ||
+               cmd == "b" || cmd == "+b" || cmd == "-b" ||
+               cmd == "c" || cmd == "+c" || cmd == "-c" ||
+               cmd == "a*" || cmd == "+a*" || cmd == "-a*" ||
+               cmd == "b*" || cmd == "+b*" || cmd == "-b*" ||
+               cmd == "c*" || cmd == "+c*" || cmd == "-c*") {
+        aim_along(cmd);
+    } else if (cmd == "rotate" || cmd == "rot") {
+        float dx = 0.0f, dy = 0.0f;
+        if (iss >> dx >> dy) {
+            camera_.rotate(dx, dy);
+            active_axis_key_.clear();
+            status_message_ = "Rotated view.";
+        } else {
+            status_message_ = "Usage: :rotate <dx> <dy>";
+        }
+    } else if (cmd == "pan" || cmd == "move" || cmd == "displace") {
+        float dx = 0.0f, dy = 0.0f;
+        if (iss >> dx >> dy) {
+            camera_.pan(dx, dy);
+            status_message_ = "Displaced structure.";
+        } else {
+            status_message_ = "Usage: :pan <dx> <dy>";
+        }
+    } else if (cmd == "zoom") {
+        float factor = 1.0f;
+        if (iss >> factor && factor > 0.0f) {
+            camera_.zoom(factor);
+            status_message_ = "Zoomed.";
+        } else {
+            status_message_ = "Usage: :zoom <factor> (e.g. 0.8 to zoom in, 1.2 out)";
+        }
     } else if (cmd == "style") {
         std::string mode;
         if (iss >> mode) {
-            if (mode == "vdw" || mode == "space") {
+            for (char& ch : mode) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            if (mode == "vdw" || mode == "space" || mode == "space-filling") {
                 rasterizer_.settings().style = render::RenderStyle::SpaceFilling;
             } else if (mode == "licorice" || mode == "stick") {
                 rasterizer_.settings().style = render::RenderStyle::Licorice;
@@ -305,10 +594,13 @@ void App::execute_command(const std::string& cmd_line) {
                 rasterizer_.settings().style = render::RenderStyle::BallAndStick;
             }
             status_message_ = "Style updated to " + mode;
+        } else {
+            cycle_style();
         }
     } else if (cmd == "shading") {
         std::string mode;
         if (iss >> mode) {
+            for (char& ch : mode) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
             if (mode == "flat") {
                 rasterizer_.settings().shading = render::RenderShading::Flat;
                 status_message_ = "Shading: Flat (rim)";
@@ -316,6 +608,8 @@ void App::execute_command(const std::string& cmd_line) {
                 rasterizer_.settings().shading = render::RenderShading::Lit;
                 status_message_ = "Shading: Lit (Blinn-Phong)";
             }
+        } else {
+            toggle_shading();
         }
     } else if (cmd == "ortho") {
         camera_.orthographic = true;
@@ -323,25 +617,92 @@ void App::execute_command(const std::string& cmd_line) {
     } else if (cmd == "persp" || cmd == "perspective") {
         camera_.orthographic = false;
         status_message_ = "Projection: Perspective";
-    } else if (cmd == "draft" || cmd == "adaptive") {
+    } else if (cmd == "proj" || cmd == "projection") {
         std::string arg;
         if (iss >> arg) {
-            adaptive_quality_ = (arg != "off" && arg != "false" && arg != "0");
+            for (char& ch : arg) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            camera_.orthographic = (arg != "persp" && arg != "perspective");
         } else {
-            adaptive_quality_ = !adaptive_quality_;
+            camera_.orthographic = !camera_.orthographic;
         }
+        status_message_ = camera_.orthographic ? "Projection: Orthographic" : "Projection: Perspective";
+    } else if (cmd == "draft" || cmd == "adaptive") {
+        auto val = parse_bool_arg(adaptive_quality_);
+        adaptive_quality_ = val.value_or(!adaptive_quality_);
         status_message_ = adaptive_quality_ ? "Adaptive draft quality: ON" : "Adaptive draft quality: OFF";
+    } else if (cmd == "mode" || cmd == "render") {
+        std::string mode_str;
+        if (iss >> mode_str) {
+            auto parsed = render::ProtocolRenderer::parse_mode(mode_str);
+            if (parsed.has_value()) {
+                graphics_mode_ = *parsed;
+                status_message_ = std::string("Render mode: ") + render::ProtocolRenderer::mode_name(graphics_mode_);
+            } else {
+                status_message_ = "Unknown render mode '" + mode_str + "' (use auto, kitty, half-blocks, ascii).";
+            }
+        } else {
+            status_message_ = std::string("Current render mode: ") + render::ProtocolRenderer::mode_name(graphics_mode_);
+        }
+    } else if (cmd == "unitcell" || cmd == "showcell") {
+        auto val = parse_bool_arg(rasterizer_.settings().show_unit_cell);
+        rasterizer_.settings().show_unit_cell = val.value_or(!rasterizer_.settings().show_unit_cell);
+        status_message_ = rasterizer_.settings().show_unit_cell ? "Unit cell ON" : "Unit cell OFF";
+    } else if (cmd == "bonds") {
+        auto val = parse_bool_arg(rasterizer_.settings().show_bonds);
+        rasterizer_.settings().show_bonds = val.value_or(!rasterizer_.settings().show_bonds);
+        status_message_ = rasterizer_.settings().show_bonds ? "Bonds ON" : "Bonds OFF";
     } else if (cmd == "hkl") {
-        int h = 0, k = 0, l = 0;
-        if (iss >> h >> k >> l) {
-            rasterizer_.settings().miller_plane = glm::ivec3(h, k, l);
-            status_message_ = "Miller plane (" + std::to_string(h) + " " +
-                              std::to_string(k) + " " + std::to_string(l) + ") displayed.";
+        std::string first;
+        if (iss >> first) {
+            if (first == "off" || first == "clear" || first == "none") {
+                rasterizer_.settings().miller_plane = std::nullopt;
+                status_message_ = "Miller plane cleared.";
+            } else {
+                try {
+                    int h = std::stoi(first);
+                    int k = 0, l = 0;
+                    if (iss >> k >> l) {
+                        rasterizer_.settings().miller_plane = glm::ivec3(h, k, l);
+                        status_message_ = "Miller plane (" + std::to_string(h) + " " +
+                                          std::to_string(k) + " " + std::to_string(l) + ") displayed.";
+                    } else {
+                        status_message_ = "Usage: :hkl <h> <k> <l> | :hkl off";
+                    }
+                } catch (...) {
+                    status_message_ = "Usage: :hkl <h> <k> <l> | :hkl off";
+                }
+            }
+        } else {
+            status_message_ = "Usage: :hkl <h> <k> <l> | :hkl off";
+        }
+    } else if (cmd == "measure" || cmd == "select") {
+        std::vector<size_t> ids;
+        size_t one_based = 0;
+        while (iss >> one_based) {
+            if (one_based >= 1 && one_based <= structure_.atoms.size()) {
+                ids.push_back(one_based - 1);
+            }
+        }
+        if (ids.empty()) {
+            status_message_ = format_measurements();
+        } else {
+            for (size_t id : selected_atom_ids_) {
+                if (id < structure_.atoms.size()) structure_.atoms[id].selected = false;
+            }
+            selected_atom_ids_.clear();
+            for (size_t id : ids) {
+                if (selected_atom_ids_.size() >= 4) break;
+                if (std::find(selected_atom_ids_.begin(), selected_atom_ids_.end(), id) == selected_atom_ids_.end()) {
+                    structure_.atoms[id].selected = true;
+                    selected_atom_ids_.push_back(id);
+                }
+            }
+            status_message_ = format_measurements();
         }
     } else if (cmd == "reset" || cmd == "r") {
         setup_camera();
         status_message_ = "Camera view reset.";
-    } else if (cmd == "clear" || cmd == "c") {
+    } else if (cmd == "clear") {
         for (size_t id : selected_atom_ids_) {
             if (id < structure_.atoms.size()) structure_.atoms[id].selected = false;
         }
@@ -349,7 +710,7 @@ void App::execute_command(const std::string& cmd_line) {
         rasterizer_.settings().miller_plane = std::nullopt;
         status_message_ = "Selections and planes cleared.";
     } else {
-        status_message_ = "Unknown command: " + cmd;
+        status_message_ = "Unknown command: " + cmd_raw + " (type :help for reference)";
     }
 }
 
@@ -480,17 +841,48 @@ void App::run() {
             }
             if (event == ftxui::Event::Return) {
                 command_mode_ = false;
+                if (!command_buffer_.empty()) {
+                    if (command_history_.empty() || command_history_.back() != command_buffer_) {
+                        command_history_.push_back(command_buffer_);
+                    }
+                }
                 execute_command(command_buffer_);
                 command_buffer_.clear();
+                if (viewport->graphics_mode() != graphics_mode_) {
+                    if (viewport->graphics_mode() == render::TerminalGraphicsMode::KittyGraphics) {
+                        delete_kitty();
+                    }
+                    viewport->set_graphics_mode(graphics_mode_);
+                }
                 viewport->set_adaptive_quality(adaptive_quality_);
                 if (refit_requested_) {
-                    viewport->request_refit();
+                    viewport->request_refit(refit_reset_pan_);
                     refit_requested_ = false;
+                    refit_reset_pan_ = true;
                 } else {
                     viewport->mark_scene_dirty();
                 }
                 if (quit_requested_) {
                     screen.Exit();
+                }
+                return true;
+            }
+            if (event == ftxui::Event::ArrowUp) {
+                if (!command_history_.empty() && history_cursor_ > 0) {
+                    if (history_cursor_ == command_history_.size()) {
+                        history_draft_ = command_buffer_;
+                    }
+                    --history_cursor_;
+                    command_buffer_ = command_history_[history_cursor_];
+                }
+                return true;
+            }
+            if (event == ftxui::Event::ArrowDown) {
+                if (history_cursor_ < command_history_.size()) {
+                    ++history_cursor_;
+                    command_buffer_ = (history_cursor_ == command_history_.size())
+                        ? history_draft_
+                        : command_history_[history_cursor_];
                 }
                 return true;
             }
@@ -513,6 +905,24 @@ void App::run() {
         if (event == ftxui::Event::Character(':')) {
             command_mode_ = true;
             command_buffer_.clear();
+            history_cursor_ = command_history_.size();
+            history_draft_.clear();
+            return true;
+        }
+        if (event == ftxui::Event::Character('x') ||
+            event == ftxui::Event::Character('y') ||
+            event == ftxui::Event::Character('z') ||
+            event == ftxui::Event::Character('1') ||
+            event == ftxui::Event::Character('2') ||
+            event == ftxui::Event::Character('3')) {
+            aim_axis_shortcut(event.character()[0]);
+            if (refit_requested_) {
+                viewport->request_refit(refit_reset_pan_);
+                refit_requested_ = false;
+                refit_reset_pan_ = true;
+            } else {
+                viewport->mark_scene_dirty();
+            }
             return true;
         }
         if (event == ftxui::Event::Character('d')) {
@@ -682,14 +1092,17 @@ void App::run() {
                         text(" Keybindings ") | bold | color(Color::RGB(255, 200, 40)),
                         text("   h / j / k / l        : Rotate around COM (left/down/up/right)") | color(Color::RGB(240, 220, 120)),
                         text("   Shift + h/j/k/l      : Displace structure (pan left/down/up/right)") | color(Color::RGB(240, 220, 120)),
+                        text("   x / y / z            : View along Cartesian x / y / z (repeat flips)") | color(Color::RGB(240, 220, 120)),
+                        text("   1 / 2 / 3            : View along lattice a / b / c (or x/y/z)") | color(Color::RGB(240, 220, 120)),
                         text("   + / -                : Zoom in / out") | color(Color::RGB(240, 220, 120)),
                         text("   s / f / d / o        : Style / flat shading / draft motion / ortho") | color(Color::RGB(200, 215, 235)),
                         text("   u                    : Toggle PBC unwrapping (Make Whole)") | color(Color::RGB(120, 240, 140)),
-                        text("   c / b                : Toggle unit cell wireframe / bonds") | color(Color::RGB(200, 215, 235)),
+                        text("   c / b                : Toggle unit cell / bonds") | color(Color::RGB(200, 215, 235)),
                         text("   m                    : Clear active measurements") | color(Color::RGB(200, 215, 235)),
                         text("   r                    : Reset camera view") | color(Color::RGB(200, 215, 235)),
                         text("   Space / [ / ] / n/p  : Play/pause, prev/next frame or structure") | color(Color::RGB(200, 215, 235)),
-                        text("   :                    : Command mode (:cell 2 2 2, :hkl 1 1 1, :draft on/off, :q)") | color(Color::RGB(255, 180, 100)),
+                        text("   :                    : Commands (Up/Down history: :view, :x/:a, :style,") | color(Color::RGB(255, 180, 100)),
+                        text("                          :shading, :mode, :bonds, :unitcell, :cell, :hkl, :q)") | color(Color::RGB(255, 180, 100)),
                         text("   ?                    : Toggle this help") | color(Color::RGB(200, 215, 235)),
                         text("   q / Esc              : Quit") | color(Color::RGB(255, 110, 110)),
                     }) | bgcolor(Color::RGB(20, 24, 36))
