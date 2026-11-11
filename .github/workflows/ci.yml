@@ -40,17 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install build tools (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
-
-      - name: Install build tools (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ninja
-
       - name: Configure
         run: >
-          cmake -B build -G Ninja
+          cmake -B build
           -DCMAKE_BUILD_TYPE=Release
           -DMOLTUI_FETCH_DEPS=ON
           -DMOLTUI_BUILD_TESTS=ON
@@ -59,7 +51,7 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build/tests --output-on-failure
 
       - name: Smoke test install
         run: |

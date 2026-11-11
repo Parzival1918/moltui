@@ -13,6 +13,8 @@ option(MOLTUI_BUILD_TESTS "Build MolTUI unit tests" ON)
 
 if(MOLTUI_FETCH_DEPS)
     include(FetchContent)
+    set(_moltui_saved_build_testing "${BUILD_TESTING}")
+    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
     find_package(gemmi QUIET)
     if(NOT gemmi_FOUND)
@@ -74,6 +76,7 @@ if(MOLTUI_FETCH_DEPS)
         )
         FetchContent_MakeAvailable(CLI11)
     endif()
+    set(BUILD_TESTING "${_moltui_saved_build_testing}" CACHE BOOL "" FORCE)
 else()
     # Find packages provided by Pixi / Conda-Forge / Homebrew / system
     find_package(gemmi REQUIRED)

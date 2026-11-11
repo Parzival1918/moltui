@@ -143,31 +143,6 @@ code, pre {
     align-items: center;
 }
 
-.badge-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-bottom: 1.15rem;
-}
-
-.badge {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    padding: 0.25rem 0.65rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-bright);
-    background: var(--bg-elevated);
-    color: var(--accent);
-}
-
-.badge.axes {
-    color: var(--text-muted);
-}
-
-.axis-a { color: var(--accent-red); }
-.axis-b { color: var(--accent-green); }
-.axis-c { color: var(--accent-blue); }
-
 h1 {
     margin: 0 0 1rem;
     font-size: clamp(2.1rem, 4.4vw, 3.25rem);

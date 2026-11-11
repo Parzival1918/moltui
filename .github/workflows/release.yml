@@ -50,17 +50,9 @@ jobs:
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install build tools (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
-
-      - name: Install build tools (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ninja
-
       - name: Configure
         run: >
-          cmake -B build -G Ninja
+          cmake -B build
           -DCMAKE_BUILD_TYPE=Release
           -DMOLTUI_FETCH_DEPS=ON
           -DMOLTUI_BUILD_TESTS=OFF

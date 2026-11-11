@@ -28,12 +28,6 @@
         <section class="hero" style="border-top: none;">
             <div class="container hero-grid">
                 <div>
-                    <div class="badge-row">
-                        <span class="badge">C++20</span>
-                        <span class="badge">Gemmi · FTXUI · GLM</span>
-                        <span class="badge">Kitty · Half-Blocks · ASCII</span>
-                        <span class="badge axes">Cell: <span class="axis-a">■a</span> <span class="axis-b">■b</span> <span class="axis-c">■c</span></span>
-                    </div>
                     <h1><span class="gradient-text">3D Molecules &amp; Crystals,<br>Right Inside Your Terminal.</span></h1>
                     <p class="hero-lead">
                         <strong>MolTUI</strong> is a native C++20 terminal visualizer for molecular trajectories and periodic crystals.
@@ -41,8 +35,8 @@
                         a custom ray-intersected 3D rasterizer, and interactive geometry measurements.
                     </p>
                     <div class="hero-actions">
-                        <a class="btn btn-primary" href="#install">Install MolTUI</a>
-                        <a class="btn btn-secondary" href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">Releases</a>
+                        <a class="btn btn-primary" href="#install">Download Release</a>
+                        <a class="btn btn-secondary" href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a>
                         <div class="quick-cmd">
                             <span id="hero-cmd">moltui tests/data/caffeine.xyz</span>
                             <button class="copy-btn inline" data-copy="moltui tests/data/caffeine.xyz" type="button">Copy</button>
@@ -71,81 +65,79 @@
             <div class="container">
                 <div class="section-header">
                     <h2>Installation</h2>
-                    <p>Choose your preferred package manager, download a self-contained release binary, or build from source.</p>
+                    <p>Download a prebuilt binary archive from GitHub Releases or compile from source.</p>
                 </div>
 
                 <div class="tabs" role="tablist" aria-label="Installation methods">
-                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="pixi">Pixi / conda-forge</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="aur">AUR (Arch Linux)</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="brew">Homebrew</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="binary">Prebuilt Binary</button>
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="linux-x64">Linux x86_64</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="linux-arm">Linux aarch64</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="macos-arm">macOS arm64</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab="macos-x64">macOS x86_64</button>
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab="source">Build from Source</button>
                 </div>
 
-                <div class="install-panel active" id="tab-pixi" role="tabpanel">
+                <div class="install-panel active" id="tab-linux-x64" role="tabpanel">
                     <p class="install-note">
-                        All C++ dependencies (<code>gemmi</code>, <code>ftxui</code>, <code>glm</code>, <code>cli11</code>) are hosted on <strong>conda-forge</strong>.
-                        Once the <code>moltui</code> feedstock in <code>packaging/conda-forge/recipe.yaml</code> is published on conda-forge, install globally with Pixi or Conda/Mamba:
-                    </p>
-                    <div class="code-block">
-                        <pre>pixi global install moltui</pre>
-                        <button class="copy-btn" data-copy="pixi global install moltui" type="button">Copy</button>
-                    </div>
-                    <div class="code-block">
-                        <pre>conda install -c conda-forge moltui</pre>
-                        <button class="copy-btn" data-copy="conda install -c conda-forge moltui" type="button">Copy</button>
-                    </div>
-                </div>
-
-                <div class="install-panel" id="tab-aur" role="tabpanel">
-                    <p class="install-note">
-                        Arch Linux users can use either <code>moltui-bin</code> (prebuilt binary from GitHub Releases) or <code>moltui</code> (builds from source with <code>packaging/aur/</code>):
-                    </p>
-                    <div class="code-block">
-                        <pre>yay -S moltui-bin</pre>
-                        <button class="copy-btn" data-copy="yay -S moltui-bin" type="button">Copy</button>
-                    </div>
-                    <div class="code-block">
-                        <pre>yay -S moltui</pre>
-                        <button class="copy-btn" data-copy="yay -S moltui" type="button">Copy</button>
-                    </div>
-                </div>
-
-                <div class="install-panel" id="tab-brew" role="tabpanel">
-                    <p class="install-note">
-                        On macOS (Apple Silicon / Intel) or Linux via the Homebrew formula in <code>packaging/homebrew/moltui.rb</code>:
-                    </p>
-                    <div class="code-block">
-                        <pre>brew install Parzival1918/tap/moltui</pre>
-                        <button class="copy-btn" data-copy="brew install Parzival1918/tap/moltui" type="button">Copy</button>
-                    </div>
-                </div>
-
-                <div class="install-panel" id="tab-binary" role="tabpanel">
-                    <p class="install-note">
-                        Self-contained tarballs for Linux (<code>x86_64</code>, <code>aarch64</code>) and macOS (<code>arm64</code>, <code>x86_64</code>) are published on <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a>:
+                        Download the self-contained <strong>Linux x86_64</strong> release archive from <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a> and install <code>moltui</code> onto your <code>PATH</code>:
                     </p>
                     <div class="code-block">
                         <pre>curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-x86_64.tar.gz | tar -xz
-./moltui-v0.1.0-linux-x86_64/bin/moltui --version</pre>
-                        <button class="copy-btn" data-copy="curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-x86_64.tar.gz | tar -xz" type="button">Copy</button>
+sudo install -m 755 moltui-v0.1.0-linux-x86_64/bin/moltui /usr/local/bin/moltui
+moltui --version</pre>
+                        <button class="copy-btn" data-copy="curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-x86_64.tar.gz | tar -xz && sudo install -m 755 moltui-v0.1.0-linux-x86_64/bin/moltui /usr/local/bin/moltui" type="button">Copy</button>
+                    </div>
+                </div>
+
+                <div class="install-panel" id="tab-linux-arm" role="tabpanel">
+                    <p class="install-note">
+                        Download the self-contained <strong>Linux aarch64</strong> release archive from <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a>:
+                    </p>
+                    <div class="code-block">
+                        <pre>curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-aarch64.tar.gz | tar -xz
+sudo install -m 755 moltui-v0.1.0-linux-aarch64/bin/moltui /usr/local/bin/moltui
+moltui --version</pre>
+                        <button class="copy-btn" data-copy="curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-aarch64.tar.gz | tar -xz && sudo install -m 755 moltui-v0.1.0-linux-aarch64/bin/moltui /usr/local/bin/moltui" type="button">Copy</button>
+                    </div>
+                </div>
+
+                <div class="install-panel" id="tab-macos-arm" role="tabpanel">
+                    <p class="install-note">
+                        Download the self-contained <strong>macOS Apple Silicon (arm64)</strong> release archive from <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a>:
+                    </p>
+                    <div class="code-block">
+                        <pre>curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-macos-arm64.tar.gz | tar -xz
+sudo install -m 755 moltui-v0.1.0-macos-arm64/bin/moltui /usr/local/bin/moltui
+moltui --version</pre>
+                        <button class="copy-btn" data-copy="curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-macos-arm64.tar.gz | tar -xz && sudo install -m 755 moltui-v0.1.0-macos-arm64/bin/moltui /usr/local/bin/moltui" type="button">Copy</button>
+                    </div>
+                </div>
+
+                <div class="install-panel" id="tab-macos-x64" role="tabpanel">
+                    <p class="install-note">
+                        Download the self-contained <strong>macOS Intel (x86_64)</strong> release archive from <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">GitHub Releases</a>:
+                    </p>
+                    <div class="code-block">
+                        <pre>curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-macos-x86_64.tar.gz | tar -xz
+sudo install -m 755 moltui-v0.1.0-macos-x86_64/bin/moltui /usr/local/bin/moltui
+moltui --version</pre>
+                        <button class="copy-btn" data-copy="curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-macos-x86_64.tar.gz | tar -xz && sudo install -m 755 moltui-v0.1.0-macos-x86_64/bin/moltui /usr/local/bin/moltui" type="button">Copy</button>
                     </div>
                 </div>
 
                 <div class="install-panel" id="tab-source" role="tabpanel">
                     <p class="install-note">
-                        Clone the repository and build either via Pixi or standalone CMake (<code>-DMOLTUI_FETCH_DEPS=ON</code> fetches any missing dependencies automatically):
+                        Clone the repository and build either via Pixi or standalone CMake (<code>-DMOLTUI_FETCH_DEPS=ON</code> fetches dependencies automatically):
                     </p>
                     <div class="code-block">
                         <pre>git clone https://github.com/Parzival1918/moltui.git
 cd moltui
-pixi run build && pixi run test</pre>
-                        <button class="copy-btn" data-copy="git clone https://github.com/Parzival1918/moltui.git && cd moltui && pixi run build && pixi run test" type="button">Copy</button>
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DMOLTUI_FETCH_DEPS=ON
+cmake --build build --parallel && cmake --install build --prefix ~/.local</pre>
+                        <button class="copy-btn" data-copy="git clone https://github.com/Parzival1918/moltui.git && cd moltui && cmake -B build -DCMAKE_BUILD_TYPE=Release -DMOLTUI_FETCH_DEPS=ON && cmake --build build --parallel && cmake --install build --prefix ~/.local" type="button">Copy</button>
                     </div>
                     <div class="code-block">
-                        <pre>cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMOLTUI_FETCH_DEPS=ON
-cmake --build build && ctest --test-dir build --output-on-failure</pre>
-                        <button class="copy-btn" data-copy="cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMOLTUI_FETCH_DEPS=ON && cmake --build build" type="button">Copy</button>
+                        <pre>pixi run build && pixi run test</pre>
+                        <button class="copy-btn" data-copy="pixi run build && pixi run test" type="button">Copy</button>
                     </div>
                 </div>
             </div>
@@ -212,7 +204,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                     <div class="shot-meta">
                         <h3>4 Visual Styles on Benzene</h3>
                         <p>Press <code>s</code> (or pass <code>-s ball|vdw|licorice|wire</code>) to switch between Ball-and-stick, Space-filling VDW, Licorice, and Wireframe.</p>
-                        <div class="shot-cmd">./build/moltui -m half-blocks --rotate 4 3 tests/data/benzene.xyz</div>
+                        <div class="shot-cmd">moltui -m half-blocks --rotate 4 3 tests/data/benzene.xyz</div>
                     </div>
                 </div>
 
@@ -224,7 +216,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                         <div class="shot-meta">
                             <h3>Half-Blocks Molecule</h3>
                             <p>Crisp TrueColor ANSI rendering with Lit Blinn-Phong shading.</p>
-                            <div class="shot-cmd">./build/moltui -p -m half-blocks --rotate 4 3 -W 118 -H 34 tests/data/benzene.xyz</div>
+                            <div class="shot-cmd">moltui -p -m half-blocks --rotate 4 3 -W 118 -H 34 tests/data/benzene.xyz</div>
                         </div>
                     </article>
 
@@ -235,7 +227,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                         <div class="shot-meta">
                             <h3>Unwrapped Crystal &amp; Miller Plane</h3>
                             <p>Make Whole PBC unwrapping (<code>-u</code>) with <code>(1 0 1)</code> plane and RGB unit-cell axes.</p>
-                            <div class="shot-cmd">./build/moltui -p -m half-blocks -u --hkl 1 0 1 --rotate 3 2 -W 118 -H 34 tests/data/structures.cif</div>
+                            <div class="shot-cmd">moltui -p -m half-blocks -u --hkl 1 0 1 --rotate 3 2 -W 118 -H 34 tests/data/structures.cif</div>
                         </div>
                     </article>
 
@@ -246,7 +238,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                         <div class="shot-meta">
                             <h3>2×2×2 Supercell Along <code>b</code></h3>
                             <p>Subcell wireframe grid with origin-cell axis arrows snapped to <code>-v b</code>.</p>
-                            <div class="shot-cmd">./build/moltui -p -m half-blocks -u --cell 2 2 2 -v b -W 118 -H 34 tests/data/structures.cif</div>
+                            <div class="shot-cmd">moltui -p -m half-blocks -u --cell 2 2 2 -v b -W 118 -H 34 tests/data/structures.cif</div>
                         </div>
                     </article>
 
@@ -257,7 +249,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                         <div class="shot-meta">
                             <h3>Monochrome ASCII Mode</h3>
                             <p>Plain-text luminance ramp for SSH sessions, logs, or piped output.</p>
-                            <div class="shot-cmd">./build/moltui -p -m ascii --rotate 4 3 -W 110 -H 32 tests/data/benzene.xyz</div>
+                            <div class="shot-cmd">moltui -p -m ascii --rotate 4 3 -W 110 -H 32 tests/data/benzene.xyz</div>
                         </div>
                     </article>
                 </div>
@@ -268,12 +260,13 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
             <div class="container">
                 <div class="section-header">
                     <h2>Quick Reference</h2>
-                    <p>Filter keybindings, <code>:</code> command-mode actions, mouse controls, and CLI flags.</p>
+                    <p>Complete reference for all mouse actions, keybindings, <code>:</code> command-mode commands, and CLI flags.</p>
                 </div>
 
                 <div class="ref-toolbar">
                     <div class="tabs" style="margin-bottom: 0;" role="tablist" aria-label="Reference categories">
                         <button class="tab-btn active" data-ref="all" type="button">All</button>
+                        <button class="tab-btn" data-ref="mouse" type="button">Mouse</button>
                         <button class="tab-btn" data-ref="keys" type="button">Keybindings</button>
                         <button class="tab-btn" data-ref="commands" type="button">Command Mode (:)</button>
                         <button class="tab-btn" data-ref="cli" type="button">CLI Flags</button>
@@ -286,35 +279,88 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
                         <thead>
                             <tr>
                                 <th>Category</th>
-                                <th>Binding / Command</th>
-                                <th>Action</th>
+                                <th>Binding / Command / Flag</th>
+                                <th>Description</th>
                             </tr>
                         </thead>
                         <tbody id="ref-tbody">
-                            <tr data-cat="keys"><td>Key</td><td><code>h</code> / <code>j</code> / <code>k</code> / <code>l</code></td><td>Rotate camera around COM (left / down / up / right)</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>H</code> / <code>J</code> / <code>K</code> / <code>L</code></td><td>Displace structure on screen (pan)</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>x</code> / <code>y</code> / <code>z</code></td><td>Align view along Cartesian axis (press again to flip)</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>1</code> / <code>2</code> / <code>3</code></td><td>Align view along lattice <code>a</code> / <code>b</code> / <code>c</code> (repeat flips)</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>+</code> / <code>-</code></td><td>Zoom in / out</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>s</code></td><td>Cycle rendering style (<code>ball</code> → <code>vdw</code> → <code>licorice</code> → <code>wire</code>)</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>f</code> / <code>o</code> / <code>d</code></td><td>Toggle shading (<code>Lit</code>/<code>Flat</code>), projection (<code>Ortho</code>/<code>Persp</code>), or draft quality</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>u</code> / <code>c</code> / <code>b</code></td><td>Toggle PBC unwrapping, unit cell box/axes, or bonds</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>m</code> / <code>r</code></td><td>Clear atom measurements / reset camera view</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>Space</code> / <code>[</code> <code>]</code> / <code>p</code> <code>n</code></td><td>Play/pause trajectory or step previous/next frame/structure</td></tr>
-                            <tr data-cat="keys"><td>Key</td><td><code>:</code> / <code>?</code> / <code>q</code></td><td>Enter command mode / toggle help overlay / quit</td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:load &lt;filepath&gt;</code></td><td>Load a new structure or trajectory file</td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:cell &lt;nx&gt; &lt;ny&gt; &lt;nz&gt;</code></td><td>Expand crystal into an <code>Nx × Ny × Nz</code> supercell</td></tr>
+                            <!-- Mouse Controls -->
+                            <tr data-cat="mouse"><td>Mouse</td><td><code>Left-Click + Drag</code></td><td>Rotate around structure center of mass (COM)</td></tr>
+                            <tr data-cat="mouse"><td>Mouse</td><td><code>Right-Click / Shift + Drag</code></td><td>Displace structure on screen (pan)</td></tr>
+                            <tr data-cat="mouse"><td>Mouse</td><td><code>Scroll Wheel</code></td><td>Zoom in / out</td></tr>
+                            <tr data-cat="mouse"><td>Mouse</td><td><code>Left-Click on Atom</code></td><td>Pick / unpick atom for measurements (click background to clear)</td></tr>
+
+                            <!-- Keybindings -->
+                            <tr data-cat="keys"><td>Key</td><td><code>h</code> / <code>j</code> / <code>k</code> / <code>l</code></td><td>Rotate around COM (left / down / up / right)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>Shift + h/j/k/l</code> (<code>H</code>/<code>J</code>/<code>K</code>/<code>L</code>)</td><td>Displace structure on screen (pan left / down / up / right)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>x</code> / <code>y</code> / <code>z</code></td><td>View along Cartesian <code>x</code> / <code>y</code> / <code>z</code> (press again to flip <code>+</code>/<code>-</code>)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>1</code> / <code>2</code> / <code>3</code></td><td>View along lattice <code>a</code> / <code>b</code> / <code>c</code> (falls back to <code>x</code>/<code>y</code>/<code>z</code> if non-periodic; repeat flips)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>+</code> / <code>=</code> and <code>-</code> / <code>_</code></td><td>Zoom in / out</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>s</code></td><td>Cycle rendering style (<code>Ball-and-stick</code> → <code>VDW</code> → <code>Licorice</code> → <code>Wireframe</code>)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>f</code></td><td>Toggle shading (<code>Lit</code> Blinn-Phong ↔ <code>Flat</code> rim)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>o</code></td><td>Toggle projection (<code>Orthographic</code> ↔ <code>Perspective</code>)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>d</code></td><td>Toggle adaptive draft quality while moving</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>u</code></td><td>Toggle periodic boundary unwrapping (Make Whole)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>c</code></td><td>Toggle unit cell box and axis arrows</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>b</code></td><td>Toggle bonds</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>m</code></td><td>Clear active atom measurements</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>r</code></td><td>Reset camera view and re-fit structure</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>Space</code></td><td>Play / pause multi-frame trajectory</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>[</code> / <code>]</code> or <code>p</code> / <code>n</code></td><td>Previous / next frame or CIF structure</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>:</code></td><td>Enter command mode (<code>Up</code> / <code>Down</code> recalls command history)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>?</code> or <code>F1</code></td><td>Toggle quick-reference help overlay</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>q</code> or <code>Esc</code></td><td>Quit MolTUI</td></tr>
+
+                            <!-- Command Mode (:) -->
+                            <tr data-cat="commands"><td>Command</td><td><code>:load &lt;filepath&gt;</code></td><td>Load a new structure file</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:cell &lt;nx&gt; &lt;ny&gt; &lt;nz&gt;</code></td><td>Expand crystal into an <code>Nx × Ny × Nz</code> supercell (alias <code>:supercell</code>)</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:unwrap</code> / <code>:wrap</code></td><td>Unwrap or wrap molecules across periodic boundaries</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:hkl &lt;h&gt; &lt;k&gt; &lt;l&gt;</code> / <code>:hkl off</code></td><td>Show or hide a Miller lattice plane</td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:view &lt;expr&gt;</code></td><td>Aim along <code>x, y, z, a, b, c, a*, b*, c*, [uvw], (hkl)</code></td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:style [mode]</code> / <code>:shading [mode]</code></td><td>Set or cycle rendering style or surface shading</td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:mode [auto|kitty|half-blocks|ascii]</code></td><td>Switch terminal graphics protocol</td></tr>
-                            <tr data-cat="commands"><td>Command</td><td><code>:select &lt;id...&gt;</code> / <code>:clear</code></td><td>Select up to 4 atom IDs for measurement / clear selection</td></tr>
-                            <tr data-cat="cli"><td>CLI</td><td><code>-s, --style &lt;mode&gt;</code></td><td>Set initial rendering style (<code>ball</code>, <code>vdw</code>, <code>licorice</code>, <code>wire</code>)</td></tr>
-                            <tr data-cat="cli"><td>CLI</td><td><code>-u, --unwrap</code> / <code>--cell &lt;nx ny nz&gt;</code></td><td>Unwrap molecules across PBC / build supercell</td></tr>
-                            <tr data-cat="cli"><td>CLI</td><td><code>-v, --view &lt;expr&gt;</code> / <code>--rotate &lt;dx dy&gt;</code></td><td>Aim along lattice/Cartesian axis or apply initial rotation</td></tr>
-                            <tr data-cat="cli"><td>CLI</td><td><code>-p, --snapshot</code> / <code>-m &lt;mode&gt;</code></td><td>Print rendered snapshot(s) to stdout and exit</td></tr>
-                            <tr data-cat="cli"><td>CLI</td><td><code>--cols &lt;n&gt;</code> / <code>-W &lt;n&gt; -H &lt;n&gt;</code></td><td>Set snapshot target column width or exact cell/pixel dimensions</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:view &lt;expr&gt;</code> / <code>:aim &lt;expr&gt;</code></td><td>Aim along <code>x</code>, <code>y</code>, <code>z</code>, <code>a</code>, <code>b</code>, <code>c</code>, <code>a*</code>, <code>b*</code>, <code>c*</code>, <code>[uvw]</code>, <code>(hkl)</code></td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:x</code> / <code>:y</code> / <code>:z</code> / <code>:a</code> / <code>:b</code> / <code>:c</code> / <code>:a*</code> / <code>:b*</code> / <code>:c*</code></td><td>Shorthand view commands (supports <code>+</code> / <code>-</code> prefix, e.g. <code>:-c</code>)</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:rotate &lt;dx&gt; &lt;dy&gt;</code> / <code>:rot</code></td><td>Rotate camera around COM</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:pan &lt;dx&gt; &lt;dy&gt;</code> / <code>:move</code> / <code>:displace</code></td><td>Displace structure on screen</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:zoom &lt;factor&gt;</code></td><td>Zoom camera (e.g. <code>0.8</code> closer, <code>1.2</code> farther)</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:reset</code> / <code>:r</code></td><td>Reset camera view</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:style [ball|vdw|licorice|wire]</code></td><td>Set or cycle rendering style</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:shading [lit|flat]</code></td><td>Set or toggle surface shading</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:ortho</code> / <code>:persp</code> / <code>:proj [ortho|persp]</code></td><td>Switch camera projection</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:mode [auto|kitty|half-blocks|ascii]</code></td><td>Switch or query terminal graphics protocol (alias <code>:render</code>)</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:draft [on|off]</code></td><td>Toggle or set adaptive draft quality (alias <code>:adaptive</code>)</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:unitcell [on|off]</code> / <code>:bonds [on|off]</code></td><td>Toggle or set unit cell or bond visibility</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:frame &lt;n&gt;</code> / <code>:next</code> / <code>:prev</code> / <code>:play</code> / <code>:pause</code></td><td>Navigate or play multi-structure/trajectory ensembles</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:select &lt;id...&gt;</code> / <code>:measure &lt;id...&gt;</code></td><td>Select up to four 1-based atom IDs for measurement</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:clear</code></td><td>Clear atom selections and Miller plane</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:help [on|off]</code> / <code>:?</code></td><td>Toggle help overlay</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:q</code> / <code>:quit</code></td><td>Exit MolTUI</td></tr>
+
+                            <!-- CLI Flags (complete list matching src/main.cpp) -->
+                            <tr data-cat="cli"><td>CLI</td><td><code>[files...]</code></td><td>Structure file(s): CIF, mmCIF, PDB, POSCAR, XYZ, RES (opens demo H₂O if omitted)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-s, --style &lt;mode&gt;</code></td><td>Rendering style: <code>ball</code>, <code>vdw</code>, <code>licorice</code>, <code>wire</code></td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--shading &lt;mode&gt;</code></td><td>Surface shading: <code>lit</code> (Blinn-Phong) or <code>flat</code> (rim-darkened)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--depth-cue</code> / <code>--no-depth-cue</code></td><td>Aerial-perspective depth fading (default: on)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--bonds</code> / <code>--no-bonds</code></td><td>Show or hide bonds (default: on)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--unitcell</code> / <code>--no-cell</code> / <code>--no-unitcell</code></td><td>Show or hide unit cell box and axes (default: on)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--hkl &lt;h&gt; &lt;k&gt; &lt;l&gt;</code></td><td>Display Miller lattice plane <code>(h k l)</code></td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-u, --unwrap</code></td><td>Unwrap molecules across periodic boundary conditions (Make Whole)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-w, --wrap</code></td><td>Wrap coordinates back into the primary <code>[0, 1)</code> unit cell</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--cell, --supercell &lt;nx&gt; &lt;ny&gt; &lt;nz&gt;</code></td><td>Expand crystal into an <code>Nx × Ny × Nz</code> supercell</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-v, --view, --direction &lt;expr&gt;</code></td><td>Aim along <code>x</code>, <code>y</code>, <code>z</code>, <code>a</code>, <code>b</code>, <code>c</code>, <code>a*</code>, <code>b*</code>, <code>c*</code>, <code>[uvw]</code>, <code>(hkl)</code> (prefix <code>-</code> to flip)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--ortho</code> / <code>--persp</code></td><td>Orthographic (<code>--ortho</code>, default) or perspective (<code>--persp</code>) projection</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--rotate &lt;dx&gt; &lt;dy&gt;</code></td><td>Rotate camera around COM in step units</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--pan &lt;dx&gt; &lt;dy&gt;</code></td><td>Displace structure on screen</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-z, --zoom &lt;factor&gt;</code></td><td>Zoom magnification (e.g. <code>2.0</code> = closer, <code>0.5</code> = farther)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-f, --frame &lt;index|all&gt;</code></td><td>1-based structure/frame index, or <code>all</code></td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--all-frames</code></td><td>Render all structures/frames in <code>-p</code> snapshot mode</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--select &lt;id...&gt;</code></td><td>Highlight up to four 1-based atom IDs</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-p, --print, --snapshot</code></td><td>Print rendered snapshot(s) to stdout and exit</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-m, --mode, --render &lt;mode&gt;</code></td><td>Rendering mode: <code>auto</code>, <code>kitty</code>, <code>half-blocks</code>, <code>ascii</code></td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-W, --width &lt;n&gt;</code></td><td>Snapshot width (cells for <code>half-blocks</code>/<code>ascii</code>, pixels for <code>kitty</code>)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-H, --height &lt;n&gt;</code></td><td>Snapshot height (cells for <code>half-blocks</code>/<code>ascii</code>, pixels for <code>kitty</code>)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--cols &lt;n&gt;</code></td><td>Target snapshot width in terminal columns (auto-calculates height)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--draft</code> / <code>--no-draft</code></td><td>Lower resolution while rotating/displacing in TUI (default: on)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-V, --version</code></td><td>Print version (<code>0.1.0</code>) and exit</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>-h, --help</code></td><td>Print help message and exit</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -327,8 +373,7 @@ cmake --build build && ctest --test-dir build --output-on-failure</pre>
             <span>MolTUI · GPL-3.0 License · Inspired by <a href="https://github.com/peterspackman/chmpy" target="_blank" rel="noopener">chmpy</a></span>
             <span>
                 <a href="https://github.com/Parzival1918/moltui" target="_blank" rel="noopener">Repository</a> ·
-                <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">Releases</a> ·
-                <a href="https://github.com/Parzival1918/moltui/blob/main/packaging/README.md" target="_blank" rel="noopener">Packaging Guide</a>
+                <a href="https://github.com/Parzival1918/moltui/releases" target="_blank" rel="noopener">Releases</a>
             </span>
         </div>
     </footer>

@@ -51,25 +51,32 @@ Cycling through `Ball-and-stick`, `Space-filling (VDW)`, `Licorice`, and `Wirefr
 | Half-Blocks Molecule (`benzene.xyz`) | Unwrapped Crystal + Miller Plane `(101)` |
 |---|---|
 | ![Benzene half-blocks snapshot](docs/assets/example_benzene.png) | ![Unwrapped crystal with (101) Miller plane](docs/assets/example_crystal_unwrapped.png) |
-| `./build/moltui -p -m half-blocks --rotate 4 3 -W 118 -H 34 tests/data/benzene.xyz` | `./build/moltui -p -m half-blocks -u --hkl 1 0 1 --rotate 3 2 -W 118 -H 34 tests/data/structures.cif` |
+| `moltui -p -m half-blocks --rotate 4 3 -W 118 -H 34 tests/data/benzene.xyz` | `moltui -p -m half-blocks -u --hkl 1 0 1 --rotate 3 2 -W 118 -H 34 tests/data/structures.cif` |
 
 | 2×2×2 Supercell Along `b` (`structures.cif`) | Monochrome ASCII (`benzene.xyz`) |
 |---|---|
 | ![2x2x2 supercell viewed along b](docs/assets/example_supercell_b.png) | ![Benzene ASCII snapshot](docs/assets/example_ascii.png) |
-| `./build/moltui -p -m half-blocks -u --cell 2 2 2 -v b -W 118 -H 34 tests/data/structures.cif` | `./build/moltui -p -m ascii --rotate 4 3 -W 110 -H 32 tests/data/benzene.xyz` |
+| `moltui -p -m half-blocks -u --cell 2 2 2 -v b -W 118 -H 34 tests/data/structures.cif` | `moltui -p -m ascii --rotate 4 3 -W 110 -H 32 tests/data/benzene.xyz` |
 
 ---
 
 ## Getting Started
 
-### Prerequisites
+### Prebuilt Binaries
+
+Download the latest self-contained release archive for Linux (`x86_64`, `aarch64`) or macOS (`arm64`, `x86_64`) from [GitHub Releases](https://github.com/Parzival1918/moltui/releases):
+
+```bash
+curl -fsSL https://github.com/Parzival1918/moltui/releases/download/v0.1.0/moltui-v0.1.0-linux-x86_64.tar.gz | tar -xz
+sudo install -m 755 moltui-v0.1.0-linux-x86_64/bin/moltui /usr/local/bin/moltui
+```
+
+### Build from Source
 
 Install [Pixi](https://pixi.sh):
 ```bash
 curl -fsSL https://pixi.sh/install.sh | bash
 ```
-
-### Build & Test
 
 ```bash
 # Configure and build (Release with Ninja via Pixi)
@@ -79,7 +86,7 @@ pixi run build
 pixi run test
 ```
 
-You can also invoke `./build/moltui` directly after building, or run through `pixi run moltui`.
+You can also install `moltui` into a prefix with `cmake --install build --prefix ~/.local`, or run it via `pixi run moltui`.
 
 ### Quick Examples
 
@@ -143,6 +150,8 @@ moltui [OPTIONS] [files...]
 | `-W, --width <n>` | Snapshot width (cells for `half-blocks`/`ascii`, pixels for `kitty`) |
 | `-H, --height <n>` | Snapshot height (cells for `half-blocks`/`ascii`, pixels for `kitty`) |
 | `--cols <n>` | Target snapshot width in terminal columns (auto-calculates height) |
+| `-V, --version` | Print version and exit |
+| `-h, --help` | Print help message and exit |
 
 ---
 
