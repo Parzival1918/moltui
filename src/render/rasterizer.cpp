@@ -134,7 +134,9 @@ void Rasterizer::render_bonds(
     const Camera& camera,
     Framebuffer& fb
 ) {
-    float thickness = (settings_.style == RenderStyle::Licorice) ? 2.5f : 1.8f;
+    float res_scale = std::max(1.0f, static_cast<float>(fb.height()) / 120.0f);
+    float base_thickness = (settings_.style == RenderStyle::Licorice) ? 2.5f : 1.8f;
+    float thickness = base_thickness * res_scale;
 
     for (const auto& bond : structure.bonds) {
         if (bond.atom1 >= structure.atoms.size() || bond.atom2 >= structure.atoms.size()) continue;
@@ -231,15 +233,17 @@ void Rasterizer::render_unit_cell(
         {0, 4}, {1, 5}, {2, 6}, {3, 7}  // along c
     }};
 
+    float res_scale = std::max(1.0f, static_cast<float>(fb.height()) / 200.0f);
+
     for (const auto& [i1, i2] : edges) {
-        draw_line_3d(corners[i1], corners[i2], cell_color, camera, fb, 1.0f);
+        draw_line_3d(corners[i1], corners[i2], cell_color, camera, fb, 1.0f * res_scale);
     }
 
     // Distinguish a, b, c axes from origin (0,0,0) with RGB colors
     glm::vec3 origin = corners[0];
-    draw_line_3d(origin, corners[1], glm::u8vec3(230, 60, 60), camera, fb, 1.5f);  // a axis: Red
-    draw_line_3d(origin, corners[2], glm::u8vec3(60, 210, 60), camera, fb, 1.5f);  // b axis: Green
-    draw_line_3d(origin, corners[4], glm::u8vec3(60, 130, 240), camera, fb, 1.5f); // c axis: Blue
+    draw_line_3d(origin, corners[1], glm::u8vec3(230, 60, 60), camera, fb, 1.5f * res_scale);  // a axis: Red
+    draw_line_3d(origin, corners[2], glm::u8vec3(60, 210, 60), camera, fb, 1.5f * res_scale);  // b axis: Green
+    draw_line_3d(origin, corners[4], glm::u8vec3(60, 130, 240), camera, fb, 1.5f * res_scale); // c axis: Blue
 }
 
 void Rasterizer::render_miller_plane(

@@ -7,6 +7,7 @@
 #include <ftxui/component/screen_interactive.hpp>
 #include <glm/geometric.hpp>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <cmath>
 #include <chrono>
@@ -48,9 +49,10 @@ double calculate_dihedral(
 
 } // namespace
 
-App::App(core::Structure structure)
+App::App(core::Structure structure, render::TerminalGraphicsMode graphics_mode)
     : structure_(std::move(structure)),
-      original_structure_(structure_) {
+      original_structure_(structure_),
+      graphics_mode_(graphics_mode) {
     setup_camera();
 }
 
@@ -198,7 +200,7 @@ void App::execute_command(const std::string& cmd_line) {
     iss >> cmd;
 
     if (cmd == "q" || cmd == "quit") {
-        std::exit(0);
+        quit_requested_ = true;
     } else if (cmd == "load") {
         std::string path;
         if (iss >> path) {
@@ -270,11 +272,76 @@ void App::execute_command(const std::string& cmd_line) {
 void App::run() {
     auto screen = ftxui::ScreenInteractive::Fullscreen();
 
-    auto viewport = std::make_shared<MolViewport>(
+    constexpr uint32_t kKittyImageId = 1;
+    bool kitty_displayed = false;
+    bool kitty_image_uploaded = false;
+    bool sync_open = false;
+    bool kitty_post_queued = false;
+
+    auto write_seq = [](std::string_view seq) {
+        std::cout.write(seq.data(), static_cast<std::streamsize>(seq.size()));
+        std::cout.flush();
+    };
+
+    std::shared_ptr<MolViewport> viewport;
+
+    auto delete_kitty = [&]() {
+        if (kitty_displayed || kitty_image_uploaded) {
+            write_seq(render::ProtocolRenderer::delete_kitty_image(kKittyImageId));
+            kitty_displayed = false;
+            kitty_image_uploaded = false;
+        }
+    };
+
+    auto sync_kitty_overlay = [&]() {
+        kitty_post_queued = false;
+        if (graphics_mode_ != render::TerminalGraphicsMode::KittyGraphics) {
+            if (sync_open) {
+                write_seq("\x1b[?2026l");
+                sync_open = false;
+            }
+            return;
+        }
+        if (show_help_) {
+            delete_kitty();
+            viewport->clear_kitty_pending();
+        } else if (viewport->consume_viewport_drawn()) {
+            bool needs_upload = viewport->consume_kitty_image_dirty() || !kitty_image_uploaded;
+            std::string cmd = needs_upload
+                ? viewport->build_kitty_frame(kKittyImageId)
+                : viewport->build_kitty_place(kKittyImageId);
+            if (!cmd.empty()) {
+                write_seq(cmd);
+                kitty_displayed = true;
+                if (needs_upload) {
+                    kitty_image_uploaded = true;
+                }
+            }
+        }
+        if (sync_open) {
+            write_seq("\x1b[?2026l");
+            sync_open = false;
+        }
+    };
+
+    viewport = std::make_shared<MolViewport>(
         structure_,
         camera_,
         rasterizer_,
-        [this](int atom_id) { on_atom_picked(atom_id); }
+        [this](int atom_id) { on_atom_picked(atom_id); },
+        graphics_mode_,
+        [&]() {
+            if (graphics_mode_ == render::TerminalGraphicsMode::KittyGraphics) {
+                if (!sync_open) {
+                    write_seq("\x1b[?2026h");
+                    sync_open = true;
+                }
+                if (!kitty_post_queued) {
+                    kitty_post_queued = true;
+                    screen.Post(sync_kitty_overlay);
+                }
+            }
+        }
     );
 
     auto component = ftxui::CatchEvent(viewport, [&](ftxui::Event event) {
@@ -288,6 +355,10 @@ void App::run() {
                 command_mode_ = false;
                 execute_command(command_buffer_);
                 command_buffer_.clear();
+                viewport->mark_scene_dirty();
+                if (quit_requested_) {
+                    screen.Exit();
+                }
                 return true;
             }
             if (event == ftxui::Event::Backspace) {
@@ -313,24 +384,29 @@ void App::run() {
         }
         if (event == ftxui::Event::Character('r')) {
             setup_camera();
+            viewport->mark_scene_dirty();
             status_message_ = "Camera reset.";
             return true;
         }
         if (event == ftxui::Event::Character('u')) {
             toggle_unwrap();
+            viewport->mark_scene_dirty();
             return true;
         }
         if (event == ftxui::Event::Character('s')) {
             cycle_style();
+            viewport->mark_scene_dirty();
             return true;
         }
         if (event == ftxui::Event::Character('c')) {
             rasterizer_.settings().show_unit_cell = !rasterizer_.settings().show_unit_cell;
+            viewport->mark_scene_dirty();
             status_message_ = rasterizer_.settings().show_unit_cell ? "Unit cell ON" : "Unit cell OFF";
             return true;
         }
         if (event == ftxui::Event::Character('b')) {
             rasterizer_.settings().show_bonds = !rasterizer_.settings().show_bonds;
+            viewport->mark_scene_dirty();
             status_message_ = rasterizer_.settings().show_bonds ? "Bonds ON" : "Bonds OFF";
             return true;
         }
@@ -339,6 +415,7 @@ void App::run() {
                 if (id < structure_.atoms.size()) structure_.atoms[id].selected = false;
             }
             selected_atom_ids_.clear();
+            viewport->mark_scene_dirty();
             status_message_ = "Selections cleared.";
             return true;
         }
@@ -349,6 +426,7 @@ void App::run() {
         if (event == ftxui::Event::Character(']')) {
             if (structure_.num_frames() > 1) {
                 structure_.set_frame((structure_.current_frame + 1) % structure_.num_frames());
+                viewport->mark_scene_dirty();
                 status_message_ = "Frame " + std::to_string(structure_.current_frame + 1) + "/" +
                                   std::to_string(structure_.num_frames());
             }
@@ -358,6 +436,7 @@ void App::run() {
             if (structure_.num_frames() > 1) {
                 size_t prev = (structure_.current_frame == 0) ? (structure_.num_frames() - 1) : (structure_.current_frame - 1);
                 structure_.set_frame(prev);
+                viewport->mark_scene_dirty();
                 status_message_ = "Frame " + std::to_string(structure_.current_frame + 1) + "/" +
                                   std::to_string(structure_.num_frames());
             }
@@ -372,16 +451,18 @@ void App::run() {
         }
 
         // Camera keyboard controls (Vim navigation hjkl)
-        if (event == ftxui::Event::Character('h')) { camera_.rotate(-6.0f, 0.0f); return true; }
-        if (event == ftxui::Event::Character('l')) { camera_.rotate(6.0f, 0.0f); return true; }
-        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 6.0f); return true; }
-        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -6.0f); return true; }
+        if (event == ftxui::Event::Character('h')) { camera_.rotate(-6.0f, 0.0f); viewport->mark_scene_dirty(); return true; }
+        if (event == ftxui::Event::Character('l')) { camera_.rotate(6.0f, 0.0f); viewport->mark_scene_dirty(); return true; }
+        if (event == ftxui::Event::Character('j')) { camera_.rotate(0.0f, 6.0f); viewport->mark_scene_dirty(); return true; }
+        if (event == ftxui::Event::Character('k')) { camera_.rotate(0.0f, -6.0f); viewport->mark_scene_dirty(); return true; }
         if (event == ftxui::Event::Character('+') || event == ftxui::Event::Character('=')) {
             camera_.zoom(0.9f);
+            viewport->mark_scene_dirty();
             return true;
         }
         if (event == ftxui::Event::Character('-') || event == ftxui::Event::Character('_')) {
             camera_.zoom(1.1f);
+            viewport->mark_scene_dirty();
             return true;
         }
 
@@ -397,6 +478,8 @@ void App::run() {
             separator(),
             text(" " + format_structure_info() + " ") | color(Color::RGB(180, 200, 220)),
             filler(),
+            text(std::string(" [") + render::ProtocolRenderer::mode_name(graphics_mode_) + "] ") | bold |
+                color(Color::RGB(140, 200, 255)),
             text(is_unwrapped_ ? " [UNWRAPPED PBC] " : " [UNIT CELL] ") | bold |
                 color(is_unwrapped_ ? Color::RGB(80, 230, 120) : Color::RGB(240, 200, 60))
         }) | bgcolor(Color::RGB(20, 24, 34));
@@ -457,7 +540,20 @@ void App::run() {
         return layout;
     });
 
+    // Switch from all-motion mouse tracking (?1003h) to button-event tracking (?1002h)
+    // once FTXUI installs its terminal hooks, preventing hover events from causing redraws.
+    screen.Post([&]() {
+        write_seq("\x1b[?1003l\x1b[?1002h");
+    });
+
     screen.Loop(renderer);
+
+    if (sync_open) {
+        write_seq("\x1b[?2026l");
+        sync_open = false;
+    }
+    write_seq("\x1b[?1002l");
+    delete_kitty();
 }
 
 } // namespace moltui::ui
