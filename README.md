@@ -4,6 +4,8 @@ A fast, interactive 3D molecular and crystal structure viewer for the terminal, 
 
 Strongly inspired by **[chmpy](https://github.com/peterspackman/chmpy)** (`chmpy.tui`), **MolTUI** brings crystal symmetry expansion, periodic boundary unwrapping, publication-style 3D rendering, and interactive geometry measurements into a native C++ terminal application powered by **Gemmi**, **FTXUI**, **GLM**, and a custom software rasterizer.
 
+![MolTUI interactive demo](docs/assets/demo.gif)
+
 ---
 
 ## Features
@@ -34,6 +36,27 @@ Strongly inspired by **[chmpy](https://github.com/peterspackman/chmpy)** (`chmpy
     - **4 atoms**: Dihedral / torsion angle (°).
 - **Non-Interactive Snapshot Mode (`-p` / `--snapshot`)**:
   - Render single frames, specific ensemble indices, or all frames directly to stdout with configurable rendering protocol, style, camera orientation, zoom, pan, atom selection, and target pixel or column dimensions.
+
+---
+
+## Gallery
+
+### Rendering Styles
+Cycling through `Ball-and-stick`, `Space-filling (VDW)`, `Licorice`, and `Wireframe` with `s`:
+
+![Rendering styles on benzene](docs/assets/styles_benzene.gif)
+
+### Terminal Snapshots (`-p` / `--snapshot`)
+
+| Half-Blocks Molecule (`benzene.xyz`) | Unwrapped Crystal + Miller Plane `(101)` |
+|---|---|
+| ![Benzene half-blocks snapshot](docs/assets/example_benzene.png) | ![Unwrapped crystal with (101) Miller plane](docs/assets/example_crystal_unwrapped.png) |
+| `./build/moltui -p -m half-blocks --rotate 4 3 -W 118 -H 34 tests/data/benzene.xyz` | `./build/moltui -p -m half-blocks -u --hkl 1 0 1 --rotate 3 2 -W 118 -H 34 tests/data/structures.cif` |
+
+| 2×2×2 Supercell Along `b` (`structures.cif`) | Monochrome ASCII (`benzene.xyz`) |
+|---|---|
+| ![2x2x2 supercell viewed along b](docs/assets/example_supercell_b.png) | ![Benzene ASCII snapshot](docs/assets/example_ascii.png) |
+| `./build/moltui -p -m half-blocks -u --cell 2 2 2 -v b -W 118 -H 34 tests/data/structures.cif` | `./build/moltui -p -m ascii --rotate 4 3 -W 110 -H 32 tests/data/benzene.xyz` |
 
 ---
 

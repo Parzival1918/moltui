@@ -15,6 +15,7 @@
 
 int main(int argc, char** argv) {
     CLI::App app{"MolTUI: High-Performance Terminal Molecular & Crystal Visualizer"};
+    app.validate_optional_arguments();
 
     std::vector<std::string> filepaths;
     app.add_option("files", filepaths, "Structure file(s) (CIF, mmCIF, PDB, POSCAR, XYZ, RES)")
@@ -40,7 +41,8 @@ int main(int argc, char** argv) {
 
     std::vector<int> hkl_plane;
     app.add_option("--hkl", hkl_plane, "Display Miller plane (e.g. --hkl 1 1 1)")
-       ->expected(3);
+       ->expected(3)
+       ->allow_extra_args(false);
 
     // Crystal & PBC
     bool unwrap = false;
@@ -51,7 +53,8 @@ int main(int argc, char** argv) {
 
     std::vector<int> supercell;
     app.add_option("--cell,--supercell", supercell, "Supercell expansion (e.g. --supercell 2 2 2)")
-       ->expected(3);
+       ->expected(3)
+       ->allow_extra_args(false);
 
     // Camera & orientation
     std::string view_expr;
@@ -64,11 +67,13 @@ int main(int argc, char** argv) {
 
     std::vector<float> rotate_xy;
     app.add_option("--rotate", rotate_xy, "Rotate camera around COM in step units (dx dy)")
-       ->expected(2);
+       ->expected(2)
+       ->allow_extra_args(false);
 
     std::vector<float> pan_xy;
     app.add_option("--pan", pan_xy, "Displace structure on screen (dx dy)")
-       ->expected(2);
+       ->expected(2)
+       ->allow_extra_args(false);
 
     float zoom_mag = 1.0f;
     app.add_option("-z,--zoom", zoom_mag, "Zoom magnification (e.g. 2.0 = closer, 0.5 = farther)");
@@ -81,7 +86,8 @@ int main(int argc, char** argv) {
     app.add_flag("--all-frames", all_frames, "Render all structures/frames in -p snapshot mode");
 
     std::vector<size_t> select_ids;
-    app.add_option("--select", select_ids, "Highlight 1-based atom IDs (up to 4)");
+    app.add_option("--select", select_ids, "Highlight 1-based atom IDs (up to 4)")
+       ->check(CLI::PositiveNumber);
 
     // Output & Snapshot options
     bool print_snapshot = false;

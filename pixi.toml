@@ -19,3 +19,6 @@ gemmi = ">=0.7.5,<0.8"
 ftxui = ">=7.0.3,<8"
 glm = ">=1.0.3,<2"
 cli11 = ">=2.7.2,<3"
+
+[environments.docs.dependencies]
+vhs = ">=0.12.1,<0.13"
