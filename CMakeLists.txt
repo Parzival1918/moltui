@@ -24,6 +24,7 @@ add_library(moltui_core
     src/render/framebuffer.cpp
     src/render/rasterizer.cpp
     src/render/protocol.cpp
+    src/render/view_utils.cpp
     src/ui/app.cpp
     src/ui/viewport.cpp
 )

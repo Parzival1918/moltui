@@ -2,6 +2,7 @@
 #include "moltui/core/elements.hpp"
 #include "moltui/core/pbc_unwrapper.hpp"
 #include "moltui/io/loader.hpp"
+#include "moltui/render/view_utils.hpp"
 
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/component/event.hpp>
@@ -253,159 +254,89 @@ void App::step_ensemble(int delta) {
 }
 
 bool App::aim_along(std::string_view expr) {
-    auto trim = [](std::string_view sv) {
-        size_t start = sv.find_first_not_of(" \t\r\n");
-        if (start == std::string_view::npos) return std::string_view{};
-        size_t end = sv.find_last_not_of(" \t\r\n");
-        return sv.substr(start, end - start + 1);
-    };
-
-    std::string raw;
-    for (unsigned char ch : trim(expr)) {
-        raw.push_back(static_cast<char>(std::tolower(ch)));
-    }
-    if (raw.empty()) {
-        status_message_ = "Usage: :view <x|y|z|a|b|c|a*|b*|c*|[uvw]|(hkl)>";
+    std::string label;
+    std::string err;
+    if (!render::aim_camera_along(structure_, camera_, expr, &label, &err)) {
+        status_message_ = err;
         return false;
     }
-
-    float sign = 1.0f;
-    if (raw.front() == '-') {
-        sign = -1.0f;
-        raw.erase(raw.begin());
-    } else if (raw.front() == '+') {
-        raw.erase(raw.begin());
-    }
-
-    glm::vec3 view_dir(0.0f);
-    glm::vec3 up_hint(0.0f, 1.0f, 0.0f);
-    std::string label;
-    bool is_crystal_vec = false;
-    bool is_reciprocal = false;
-
-    auto set_cartesian = [&](int axis) {
-        glm::vec3 d(0.0f);
-        d[axis] = sign;
-        view_dir = d;
-        if (axis == 1) {
-            up_hint = (sign > 0.0f) ? glm::vec3(0.0f, 0.0f, -1.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
-        } else {
-            up_hint = glm::vec3(0.0f, 1.0f, 0.0f);
-        }
-        const char* names[3] = {"x", "y", "z"};
-        label = std::string(sign < 0.0f ? "-" : "+") + names[axis];
-    };
-
-    if (raw == "x") {
-        set_cartesian(0);
-    } else if (raw == "y") {
-        set_cartesian(1);
-    } else if (raw == "z") {
-        set_cartesian(2);
-    } else if (raw == "a" || raw == "b" || raw == "c" ||
-               raw == "a*" || raw == "b*" || raw == "c*") {
-        if (!structure_.unit_cell.has_value()) {
-            status_message_ = "Structure is not periodic (no unit cell). Use x, y, or z.";
-            return false;
-        }
-        is_crystal_vec = true;
-        is_reciprocal = (raw.size() == 2 && raw[1] == '*');
-        int idx = (raw[0] == 'a') ? 0 : (raw[0] == 'b' ? 1 : 2);
-        glm::vec3 indices(0.0f);
-        indices[idx] = sign;
-        const auto& cell = *structure_.unit_cell;
-        view_dir = is_reciprocal
-            ? (glm::transpose(cell.frac_matrix) * indices)
-            : (cell.orth_matrix * indices);
-        label = std::string(sign < 0.0f ? "-" : "+") + raw;
-    } else {
-        std::string inner = raw;
-        if (inner.size() >= 2 && inner.front() == '(' && inner.back() == ')') {
-            is_reciprocal = true;
-            inner = inner.substr(1, inner.size() - 2);
-        } else if (inner.size() >= 2 && inner.front() == '[' && inner.back() == ']') {
-            inner = inner.substr(1, inner.size() - 2);
-        }
-        for (char& ch : inner) {
-            if (ch == ',' || ch == ';') ch = ' ';
-        }
-        std::istringstream vss(inner);
-        float i0 = 0.0f, i1 = 0.0f, i2 = 0.0f;
-        if (!(vss >> i0 >> i1 >> i2)) {
-            // Try compact crystallographic form like "110" or "1-10"
-            std::vector<int> parsed;
-            for (size_t pos = 0; pos < inner.size();) {
-                if (std::isspace(static_cast<unsigned char>(inner[pos]))) {
-                    ++pos;
-                    continue;
-                }
-                int s = 1;
-                if (inner[pos] == '-') {
-                    s = -1;
-                    ++pos;
-                } else if (inner[pos] == '+') {
-                    ++pos;
-                }
-                if (pos >= inner.size() || !std::isdigit(static_cast<unsigned char>(inner[pos]))) {
-                    parsed.clear();
-                    break;
-                }
-                parsed.push_back(s * (inner[pos] - '0'));
-                ++pos;
-            }
-            if (parsed.size() != 3) {
-                status_message_ = "Invalid view direction: " + std::string(expr);
-                return false;
-            }
-            i0 = static_cast<float>(parsed[0]);
-            i1 = static_cast<float>(parsed[1]);
-            i2 = static_cast<float>(parsed[2]);
-        }
-
-        glm::vec3 indices = sign * glm::vec3(i0, i1, i2);
-        if (glm::length(indices) < 1e-6f) {
-            status_message_ = "View direction must be non-zero.";
-            return false;
-        }
-        if (structure_.unit_cell.has_value()) {
-            is_crystal_vec = true;
-            const auto& cell = *structure_.unit_cell;
-            view_dir = is_reciprocal
-                ? (glm::transpose(cell.frac_matrix) * indices)
-                : (cell.orth_matrix * indices);
-        } else {
-            view_dir = indices;
-            up_hint = (std::abs(indices.x) < 1e-4f && std::abs(indices.z) < 1e-4f)
-                ? glm::vec3(0.0f, 0.0f, (indices.y > 0.0f) ? -1.0f : 1.0f)
-                : glm::vec3(0.0f, 1.0f, 0.0f);
-        }
-        label = std::string(expr);
-    }
-
-    if (is_crystal_vec && structure_.unit_cell.has_value()) {
-        // Choose cell vector most perpendicular to view_dir as screen-up (prefer b, then a, then c)
-        const auto& M = structure_.unit_cell->orth_matrix;
-        glm::vec3 w = glm::normalize(view_dir);
-        const int order[3] = {1, 0, 2};
-        float best_cos = 1e9f;
-        for (int idx : order) {
-            glm::vec3 vec = M[idx];
-            float len = glm::length(vec);
-            if (len < 1e-6f) continue;
-            float c = std::abs(glm::dot(vec / len, w));
-            if (c < best_cos - 1e-4f) {
-                best_cos = c;
-                up_hint = vec / len;
-            }
-        }
-    }
-
-    camera_.look_along(view_dir, up_hint);
     last_aimed_orientation_ = camera_.orientation();
     refit_requested_ = true;
     refit_reset_pan_ = false;
     status_message_ = "View along " + label;
     return true;
+}
+
+void App::set_initial_frame(size_t one_based_idx) {
+    if (one_based_idx == 0) return;
+    if (ensemble_.size() > 1) {
+        size_t idx = std::min(one_based_idx - 1, ensemble_.size() - 1);
+        ensemble_index_ = idx;
+        structure_ = ensemble_[idx];
+        original_structure_ = structure_;
+        is_unwrapped_ = structure_.is_molecular_crystal;
+        setup_camera();
+    } else if (structure_.num_frames() > 1) {
+        size_t idx = std::min(one_based_idx - 1, structure_.num_frames() - 1);
+        structure_.set_frame(idx);
+        setup_camera();
+    }
+}
+
+void App::set_initial_unwrap(bool unwrap) {
+    if (unwrap && structure_.is_periodic() && !is_unwrapped_) {
+        structure_.unwrap_pbc();
+        is_unwrapped_ = true;
+        setup_camera();
+    }
+}
+
+void App::set_initial_wrap(bool wrap) {
+    if (wrap && structure_.is_periodic() && is_unwrapped_) {
+        structure_.wrap_pbc();
+        is_unwrapped_ = false;
+        setup_camera();
+    }
+}
+
+bool App::set_initial_view(std::string_view expr) {
+    return aim_along(expr);
+}
+
+void App::set_initial_rotation(float dx, float dy) {
+    camera_.rotate(dx, dy);
+    active_axis_key_.clear();
+}
+
+void App::set_initial_pan(float dx, float dy) {
+    initial_pan_dx_ = dx;
+    initial_pan_dy_ = dy;
+}
+
+void App::set_initial_zoom_mag(float mag) {
+    if (mag > 0.0f) {
+        initial_zoom_mag_ = mag;
+    }
+}
+
+void App::select_atoms(const std::vector<size_t>& one_based_ids) {
+    for (size_t id : selected_atom_ids_) {
+        if (id < structure_.atoms.size()) structure_.atoms[id].selected = false;
+    }
+    selected_atom_ids_.clear();
+    for (size_t one_based : one_based_ids) {
+        if (one_based >= 1 && one_based <= structure_.atoms.size()) {
+            size_t id = one_based - 1;
+            if (std::find(selected_atom_ids_.begin(), selected_atom_ids_.end(), id) == selected_atom_ids_.end()) {
+                if (selected_atom_ids_.size() >= 4) break;
+                structure_.atoms[id].selected = true;
+                selected_atom_ids_.push_back(id);
+            }
+        }
+    }
+    if (!selected_atom_ids_.empty()) {
+        status_message_ = format_measurements();
+    }
 }
 
 void App::aim_axis_shortcut(char key) {
@@ -583,30 +514,25 @@ void App::execute_command(const std::string& cmd_line) {
     } else if (cmd == "style") {
         std::string mode;
         if (iss >> mode) {
-            for (char& ch : mode) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-            if (mode == "vdw" || mode == "space" || mode == "space-filling") {
-                rasterizer_.settings().style = render::RenderStyle::SpaceFilling;
-            } else if (mode == "licorice" || mode == "stick") {
-                rasterizer_.settings().style = render::RenderStyle::Licorice;
-            } else if (mode == "wire" || mode == "wireframe") {
-                rasterizer_.settings().style = render::RenderStyle::Wireframe;
+            if (auto parsed = render::parse_render_style(mode)) {
+                rasterizer_.settings().style = *parsed;
+                status_message_ = "Style updated to " + mode;
             } else {
-                rasterizer_.settings().style = render::RenderStyle::BallAndStick;
+                status_message_ = "Unknown style '" + mode + "' (use ball, vdw, licorice, wire).";
             }
-            status_message_ = "Style updated to " + mode;
         } else {
             cycle_style();
         }
     } else if (cmd == "shading") {
         std::string mode;
         if (iss >> mode) {
-            for (char& ch : mode) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-            if (mode == "flat") {
-                rasterizer_.settings().shading = render::RenderShading::Flat;
-                status_message_ = "Shading: Flat (rim)";
+            if (auto parsed = render::parse_render_shading(mode)) {
+                rasterizer_.settings().shading = *parsed;
+                status_message_ = (*parsed == render::RenderShading::Flat)
+                    ? "Shading: Flat (rim)"
+                    : "Shading: Lit (Blinn-Phong)";
             } else {
-                rasterizer_.settings().shading = render::RenderShading::Lit;
-                status_message_ = "Shading: Lit (Blinn-Phong)";
+                status_message_ = "Unknown shading '" + mode + "' (use lit or flat).";
             }
         } else {
             toggle_shading();
@@ -831,6 +757,16 @@ void App::run() {
         trigger_draft_interaction
     );
     viewport->set_adaptive_quality(adaptive_quality_);
+    if (initial_zoom_mag_ != 1.0f || initial_pan_dx_ != 0.0f || initial_pan_dy_ != 0.0f) {
+        viewport->set_post_fit_hook([this]() {
+            if (initial_zoom_mag_ != 1.0f) {
+                camera_.zoom(1.0f / initial_zoom_mag_);
+            }
+            if (initial_pan_dx_ != 0.0f || initial_pan_dy_ != 0.0f) {
+                camera_.pan(initial_pan_dx_, initial_pan_dy_);
+            }
+        });
+    }
 
     auto component = ftxui::CatchEvent(viewport, [&](ftxui::Event event) {
         if (command_mode_) {

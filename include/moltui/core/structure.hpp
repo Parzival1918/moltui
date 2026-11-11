@@ -19,6 +19,7 @@ struct UnitCell {
     
     std::string space_group{"P 1"};
     int space_group_number{1};
+    glm::ivec3 subcell_repeats{1, 1, 1};
     
     glm::mat3 orth_matrix{1.0f};  // Fractional to Cartesian
     glm::mat3 frac_matrix{1.0f};  // Cartesian to Fractional

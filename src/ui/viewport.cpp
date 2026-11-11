@@ -1,5 +1,6 @@
 #include "moltui/ui/viewport.hpp"
 #include "moltui/core/elements.hpp"
+#include "moltui/render/view_utils.hpp"
 #include <ftxui/dom/node.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
@@ -54,49 +55,6 @@ std::pair<int, int> query_kitty_pixel_size(int cols, int rows, bool draft) {
     return {pixel_w, pixel_h};
 }
 
-void fit_camera_to_structure(
-    const core::Structure& structure,
-    render::Camera& camera,
-    const render::RasterizerSettings& settings,
-    bool reset_pan_offset
-) {
-    std::vector<glm::vec3> pts;
-    std::vector<float> radii;
-    pts.reserve(structure.atoms.size() + 8);
-    radii.reserve(structure.atoms.size() + 8);
-
-    for (const auto& atom : structure.atoms) {
-        if (!atom.visible) continue;
-        float r = 0.25f;
-        if (settings.style == render::RenderStyle::SpaceFilling) {
-            r = core::ElementTable::get_vdw_radius(atom.element);
-        } else if (settings.style == render::RenderStyle::BallAndStick) {
-            r = core::ElementTable::get_ball_stick_radius(atom.element) *
-                (structure.is_periodic() ? 1.05f : 0.90f);
-        } else {
-            r = settings.bond_radius;
-        }
-        pts.push_back(atom.pos);
-        radii.push_back(r);
-    }
-
-    if (settings.show_unit_cell && structure.unit_cell.has_value()) {
-        for (int i = 0; i < 8; ++i) {
-            glm::vec3 frac(
-                (i & 1) ? 1.0f : 0.0f,
-                (i & 2) ? 1.0f : 0.0f,
-                (i & 4) ? 1.0f : 0.0f
-            );
-            pts.push_back(structure.unit_cell->fractional_to_cartesian(frac));
-            radii.push_back(0.20f);
-        }
-    }
-
-    if (!pts.empty()) {
-        camera.fit_extent(structure.center_of_mass(), pts, radii, false, reset_pan_offset);
-    }
-}
-
 class MolViewportNode : public ftxui::Node {
 public:
     MolViewportNode(
@@ -113,7 +71,8 @@ public:
         bool use_draft,
         bool& viewport_drawn,
         bool& kitty_image_dirty,
-        MolViewport::FrameRenderHook& on_frame_rendered
+        MolViewport::FrameRenderHook& on_frame_rendered,
+        std::function<void()>& post_fit_hook
     ) : structure_(structure),
         camera_(camera),
         rasterizer_(rasterizer),
@@ -127,7 +86,8 @@ public:
         use_draft_(use_draft),
         viewport_drawn_(viewport_drawn),
         kitty_image_dirty_(kitty_image_dirty),
-        on_frame_rendered_(on_frame_rendered) {}
+        on_frame_rendered_(on_frame_rendered),
+        post_fit_hook_(post_fit_hook) {}
 
     void ComputeRequirement() override {
         requirement_.min_x = 20;
@@ -160,7 +120,11 @@ public:
 
         camera_.set_viewport(pixel_w, pixel_h);
         if (needs_initial_fit_) {
-            fit_camera_to_structure(structure_, camera_, rasterizer_.settings(), refit_reset_pan_);
+            render::fit_camera_to_structure(structure_, camera_, rasterizer_.settings(), refit_reset_pan_);
+            if (post_fit_hook_) {
+                post_fit_hook_();
+                post_fit_hook_ = nullptr;
+            }
             needs_initial_fit_ = false;
             refit_reset_pan_ = true;
             scene_dirty_ = true;
@@ -235,6 +199,7 @@ private:
     bool& viewport_drawn_;
     bool& kitty_image_dirty_;
     MolViewport::FrameRenderHook& on_frame_rendered_;
+    std::function<void()>& post_fit_hook_;
 };
 
 } // namespace
@@ -271,7 +236,8 @@ ftxui::Element MolViewport::OnRender() {
         adaptive_quality_ && draft_mode_,
         viewport_drawn_,
         kitty_image_dirty_,
-        on_frame_rendered_
+        on_frame_rendered_,
+        post_fit_hook_
     ) | ftxui::reflect(box_);
 }
 

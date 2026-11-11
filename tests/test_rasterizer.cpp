@@ -139,6 +139,52 @@ void test_rasterizer_cylinder_and_shading() {
     std::cout << "PASSED\n";
 }
 
+void test_supercell_unit_cell_rendering() {
+    std::cout << "[Test] Supercell Subcell Edges & Origin Vectors... ";
+    Structure base;
+    UnitCell cell;
+    cell.a = 5.0;
+    cell.b = 5.0;
+    cell.c = 5.0;
+    cell.update_matrices();
+    base.unit_cell = cell;
+    base.atoms = {{0, "C", "C1", {2.5f, 2.5f, 2.5f}, {0.5f, 0.5f, 0.5f}, 1.0f, 0.0f, 0.0f, "", "", 0, false, false}};
+
+    Structure super = base.generate_supercell(2, 2, 2);
+    assert(super.unit_cell.has_value());
+    assert(super.unit_cell->subcell_repeats == glm::ivec3(2, 2, 2));
+
+    Camera cam;
+    cam.orthographic = true;
+    cam.set_viewport(200, 200);
+    cam.reset({5.0f, 5.0f, 5.0f}, 10.0f);
+
+    Rasterizer rast;
+    rast.settings().show_bonds = false;
+    rast.settings().show_unit_cell = true;
+    for (auto& a : super.atoms) a.visible = false; // Isolate cell edges & origin vectors
+
+    Framebuffer fb(200, 200);
+    rast.render(super, cam, fb);
+
+    // Midpoint of origin a-axis (2.5, 0, 0) should be reddish (red vector shaft)
+    glm::vec3 s_red = cam.world_to_screen({2.5f, 0.0f, 0.0f});
+    glm::u8vec3 col_red = fb.get_color(static_cast<int>(s_red.x), static_cast<int>(s_red.y));
+    assert(col_red.r > col_red.b + 40);
+
+    // Midpoint of second cell along a (7.5, 0, 0) should NOT be red arrow; should be neutral cell edge
+    glm::vec3 s_edge = cam.world_to_screen({7.5f, 0.0f, 0.0f});
+    glm::u8vec3 col_edge = fb.get_color(static_cast<int>(s_edge.x), static_cast<int>(s_edge.y));
+    assert(col_edge != rast.settings().background_color);
+    assert(col_edge.b >= col_edge.r);
+
+    // Interior subcell divider at x=5, y=5 (5.0, 5.0, 10.0) should be drawn
+    glm::vec3 s_mid = cam.world_to_screen({5.0f, 5.0f, 10.0f});
+    assert(fb.get_color(static_cast<int>(s_mid.x), static_cast<int>(s_mid.y)) != rast.settings().background_color);
+
+    std::cout << "PASSED\n";
+}
+
 void test_protocol_renderer() {
     std::cout << "[Test] ProtocolRenderer (Kitty, Half-Blocks, ASCII)... ";
 
@@ -208,6 +254,7 @@ int main() {
     test_framebuffer();
     test_rasterizer_sphere();
     test_rasterizer_cylinder_and_shading();
+    test_supercell_unit_cell_rendering();
     test_protocol_renderer();
     std::cout << "All rasterizer tests PASSED!\n";
     return 0;

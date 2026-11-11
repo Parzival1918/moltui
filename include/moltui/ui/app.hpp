@@ -30,8 +30,18 @@ public:
     void run();
 
     render::Rasterizer& rasterizer() { return rasterizer_; }
+    render::Camera& camera() { return camera_; }
     void set_adaptive_quality(bool enabled) { adaptive_quality_ = enabled; }
     bool adaptive_quality() const { return adaptive_quality_; }
+
+    void set_initial_frame(size_t one_based_idx);
+    void set_initial_unwrap(bool unwrap);
+    void set_initial_wrap(bool wrap);
+    bool set_initial_view(std::string_view expr);
+    void set_initial_rotation(float dx, float dy);
+    void set_initial_pan(float dx, float dy);
+    void set_initial_zoom_mag(float mag);
+    void select_atoms(const std::vector<size_t>& one_based_ids);
 
 private:
     std::vector<core::Structure> ensemble_;
@@ -50,6 +60,9 @@ private:
     bool refit_requested_{false};
     bool refit_reset_pan_{true};
     bool adaptive_quality_{true};
+    float initial_pan_dx_{0.0f};
+    float initial_pan_dy_{0.0f};
+    float initial_zoom_mag_{1.0f};
     std::string command_buffer_{""};
     std::vector<std::string> command_history_;
     size_t history_cursor_{0};

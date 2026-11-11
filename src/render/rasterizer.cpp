@@ -642,43 +642,65 @@ void Rasterizer::draw_hairline_3d(
 }
 
 void Rasterizer::render_unit_cell(
-    const core::Structure& structure,
+    const core::Structure& /*structure*/,
     const core::UnitCell& cell,
     const Camera& camera,
     Framebuffer& fb
 ) {
-    // 8 fractional corners
-    std::array<glm::vec3, 8> corners;
-    for (int i = 0; i < 8; ++i) {
-        glm::vec3 frac(
-            (i & 1) ? 1.0f : 0.0f,
-            (i & 2) ? 1.0f : 0.0f,
-            (i & 4) ? 1.0f : 0.0f
-        );
-        corners[i] = cell.fractional_to_cartesian(frac);
+    int nx = std::max(1, cell.subcell_repeats.x);
+    int ny = std::max(1, cell.subcell_repeats.y);
+    int nz = std::max(1, cell.subcell_repeats.z);
+
+    // Subtle chmpy.tui-style translucent cell edges for every subcell (respecting depth buffer)
+    glm::u8vec3 cell_color(170, 180, 205);
+    auto grid_pt = [&](int ix, int iy, int iz) {
+        return cell.fractional_to_cartesian(glm::vec3(
+            static_cast<float>(ix) / static_cast<float>(nx),
+            static_cast<float>(iy) / static_cast<float>(ny),
+            static_cast<float>(iz) / static_cast<float>(nz)
+        ));
+    };
+
+    for (int iy = 0; iy <= ny; ++iy) {
+        for (int iz = 0; iz <= nz; ++iz) {
+            for (int ix = 0; ix < nx; ++ix) {
+                draw_hairline_3d(grid_pt(ix, iy, iz), grid_pt(ix + 1, iy, iz), cell_color, 0.45f, camera, fb);
+            }
+        }
+    }
+    for (int ix = 0; ix <= nx; ++ix) {
+        for (int iz = 0; iz <= nz; ++iz) {
+            for (int iy = 0; iy < ny; ++iy) {
+                draw_hairline_3d(grid_pt(ix, iy, iz), grid_pt(ix, iy + 1, iz), cell_color, 0.45f, camera, fb);
+            }
+        }
+    }
+    for (int ix = 0; ix <= nx; ++ix) {
+        for (int iy = 0; iy <= ny; ++iy) {
+            for (int iz = 0; iz < nz; ++iz) {
+                draw_hairline_3d(grid_pt(ix, iy, iz), grid_pt(ix, iy, iz + 1), cell_color, 0.45f, camera, fb);
+            }
+        }
     }
 
-    // Subtle chmpy.tui-style translucent cell edges (respecting depth buffer)
-    glm::u8vec3 cell_color(170, 180, 205);
-    const std::array<std::pair<int, int>, 12> edges = {{
-        {0, 1}, {2, 3}, {4, 5}, {6, 7}, // along a
-        {0, 2}, {1, 3}, {4, 6}, {5, 7}, // along b
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}  // along c
+    // Solid 3D a, b, c vector arrows for the origin unit cell only (cylinder shaft + cone arrowhead)
+    glm::vec3 origin = grid_pt(0, 0, 0);
+    const std::array<glm::vec3, 3> tips = {{
+        grid_pt(1, 0, 0),
+        grid_pt(0, 1, 0),
+        grid_pt(0, 0, 1)
     }};
 
-    for (const auto& [i1, i2] : edges) {
-        draw_hairline_3d(corners[i1], corners[i2], cell_color, 0.45f, camera, fb);
-    }
-
-    // Solid 3D a, b, c vector arrows (cylinder shaft + cone arrowhead), unfaded by depth cueing
-    float span = structure.get_bounds().radius;
-    float shaft_r = std::max(0.06f, span * 0.011f);
+    float origin_span = std::max({
+        glm::length(tips[0] - origin),
+        glm::length(tips[1] - origin),
+        glm::length(tips[2] - origin)
+    });
+    float shaft_r = std::max(0.06f, origin_span * 0.014f);
     float head_r = shaft_r * 2.5f;
     float head_len = head_r * 2.6f;
     DepthRange unused_range{1.0f, 20.0f};
 
-    glm::vec3 origin = corners[0];
-    const std::array<glm::vec3, 3> tips = {{corners[1], corners[2], corners[4]}};
     for (size_t axis_idx = 0; axis_idx < 3; ++axis_idx) {
         glm::vec3 vec = tips[axis_idx] - origin;
         float len = glm::length(vec);

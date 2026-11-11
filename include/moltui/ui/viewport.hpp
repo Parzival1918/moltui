@@ -45,6 +45,7 @@ public:
         refit_reset_pan_ = reset_pan;
         scene_dirty_ = true;
     }
+    void set_post_fit_hook(std::function<void()> hook) { post_fit_hook_ = std::move(hook); }
     void set_adaptive_quality(bool enabled);
     bool adaptive_quality() const { return adaptive_quality_; }
     void set_draft_mode(bool draft);
@@ -65,6 +66,7 @@ private:
     render::TerminalGraphicsMode graphics_mode_;
     FrameRenderHook on_frame_rendered_;
     InteractionHook on_interaction_;
+    std::function<void()> post_fit_hook_;
 
     render::Framebuffer fb_;
     ftxui::Box box_;

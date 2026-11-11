@@ -182,6 +182,7 @@ Structure Structure::generate_supercell(int nx, int ny, int nz) const {
     PbcUnwrapper::wrap_to_unit_cell(base);
 
     if (nx == 1 && ny == 1 && nz == 1) {
+        base.unit_cell->subcell_repeats = glm::ivec3(1, 1, 1);
         base.prepare_crystal_display();
         return base;
     }
@@ -193,6 +194,7 @@ Structure Structure::generate_supercell(int nx, int ny, int nz) const {
     new_cell.a *= nx;
     new_cell.b *= ny;
     new_cell.c *= nz;
+    new_cell.subcell_repeats = glm::ivec3(nx, ny, nz);
     new_cell.update_matrices();
     super.unit_cell = new_cell;
 

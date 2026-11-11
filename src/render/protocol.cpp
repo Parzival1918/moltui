@@ -222,9 +222,9 @@ std::string ProtocolRenderer::render_kitty(
             out += "a=T,f=24,s=" + std::to_string(w) + ",v=" + std::to_string(h) + ",q=2";
             if (image_id > 0) {
                 out += ",i=" + std::to_string(image_id) + ",p=1,C=1";
-                if (cols > 0 && rows > 0) {
-                    out += ",c=" + std::to_string(cols) + ",r=" + std::to_string(rows);
-                }
+            }
+            if (cols > 0 && rows > 0) {
+                out += ",c=" + std::to_string(cols) + ",r=" + std::to_string(rows);
             }
             out += has_more ? ",m=1;" : ",m=0;";
         } else {
