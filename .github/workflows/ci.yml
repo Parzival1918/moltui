@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pixi-linux:
+    name: Linux (Pixi)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+          cache: true
+
+      - name: Build and test with Pixi
+        run: pixi run test
+
+      - name: Smoke test CLI
+        run: |
+          ./build/moltui --version
+          ./build/moltui -p -m ascii --rotate 4 3 -W 60 -H 18 tests/data/benzene.xyz
+
+  cmake-portable:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64 (FetchContent)
+            os: ubuntu-24.04
+          - name: macOS arm64 (FetchContent)
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DMOLTUI_FETCH_DEPS=ON
+          -DMOLTUI_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Smoke test install
+        run: |
+          cmake --install build --prefix "$PWD/dist"
+          ./dist/bin/moltui --version
+          ./dist/bin/moltui -p -m ascii -W 40 -H 12

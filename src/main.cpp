@@ -13,8 +13,13 @@
 #include <optional>
 #include <vector>
 
+#ifndef MOLTUI_VERSION
+#define MOLTUI_VERSION "0.1.0"
+#endif
+
 int main(int argc, char** argv) {
     CLI::App app{"MolTUI: High-Performance Terminal Molecular & Crystal Visualizer"};
+    app.set_version_flag("-V,--version", MOLTUI_VERSION);
     app.validate_optional_arguments();
 
     std::vector<std::string> filepaths;

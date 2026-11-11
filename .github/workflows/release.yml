@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            os: ubuntu-22.04
+            cmake_args: ""
+            can_run: true
+          - target: linux-aarch64
+            os: ubuntu-24.04-arm
+            cmake_args: ""
+            can_run: true
+          - target: macos-arm64
+            os: macos-15
+            cmake_args: "-DCMAKE_OSX_ARCHITECTURES=arm64"
+            can_run: true
+          - target: macos-x86_64
+            os: macos-15
+            cmake_args: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            can_run: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DMOLTUI_FETCH_DEPS=ON
+          -DMOLTUI_BUILD_TESTS=OFF
+          ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Stage archive
+        shell: bash
+        run: |
+          PKG_DIR="moltui-${{ steps.version.outputs.tag }}-${{ matrix.target }}"
+          cmake --install build --prefix "$PKG_DIR"
+          cp LICENSE README.md "$PKG_DIR/"
+          if [[ "${{ matrix.can_run }}" == "true" ]]; then
+            "$PKG_DIR/bin/moltui" --version
+            "$PKG_DIR/bin/moltui" -p -m ascii -W 40 -H 12 > /dev/null
+          fi
+          mkdir -p artifacts
+          tar -czf "artifacts/${PKG_DIR}.tar.gz" "$PKG_DIR"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: artifacts/*.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve version tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute SHA256 checksums
+        working-directory: artifacts
+        run: sha256sum *.tar.gz > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            artifacts/*.tar.gz
+            artifacts/SHA256SUMS.txt

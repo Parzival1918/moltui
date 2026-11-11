@@ -1,0 +1,23 @@
+# Maintainer: Pedro Juan Royo <pedro.juan.royo@gmail.com>
+pkgname=moltui-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="High-performance 3D molecular and crystal structure viewer for the terminal (prebuilt binary)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/Parzival1918/moltui"
+license=('GPL-3.0-only')
+depends=('gcc-libs' 'zlib')
+provides=('moltui')
+conflicts=('moltui')
+source_x86_64=("moltui-v${pkgver}-linux-x86_64.tar.gz::https://github.com/Parzival1918/moltui/releases/download/v${pkgver}/moltui-v${pkgver}-linux-x86_64.tar.gz")
+source_aarch64=("moltui-v${pkgver}-linux-aarch64.tar.gz::https://github.com/Parzival1918/moltui/releases/download/v${pkgver}/moltui-v${pkgver}-linux-aarch64.tar.gz")
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+    local arch_tag="$CARCH"
+    local dir="moltui-v${pkgver}-linux-${arch_tag}"
+    install -Dm755 "${dir}/bin/moltui" "$pkgdir/usr/bin/moltui"
+    install -Dm644 "${dir}/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "${dir}/README.md" "$pkgdir/usr/share/doc/moltui/README.md"
+}

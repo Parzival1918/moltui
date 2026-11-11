@@ -1,0 +1,26 @@
+# Maintainer: Pedro Juan Royo <pedro.juan.royo@gmail.com>
+pkgname=moltui
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="High-performance 3D molecular and crystal structure viewer for the terminal"
+arch=('x86_64' 'aarch64')
+url="https://github.com/Parzival1918/moltui"
+license=('GPL-3.0-only')
+depends=('gcc-libs' 'zlib')
+makedepends=('cmake' 'ninja' 'git' 'glm' 'cli11')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Parzival1918/moltui/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cmake -S "$pkgname-$pkgver" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DMOLTUI_FETCH_DEPS=ON \
+        -DMOLTUI_BUILD_TESTS=OFF
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+    install -Dm644 "$pkgname-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

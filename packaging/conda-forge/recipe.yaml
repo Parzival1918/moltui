@@ -1,0 +1,57 @@
+schema_version: 1
+
+context:
+  name: moltui
+  version: "0.1.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/Parzival1918/moltui/archive/refs/tags/v${{ version }}.tar.gz
+  # Update with: curl -sL <url> | sha256sum
+  sha256: REPLACE_WITH_RELEASE_TARBALL_SHA256
+
+build:
+  number: 0
+  script:
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DMOLTUI_BUILD_TESTS=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build --prefix "${PREFIX}"
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - cmake >=3.24
+    - ninja
+  host:
+    - gemmi >=0.7.5,<0.8
+    - ftxui >=7.0.3,<8
+    - glm >=1.0.3,<2
+    - cli11 >=2.7.2,<3
+    - zlib
+
+tests:
+  - script:
+      - moltui --version
+      - moltui --help
+      - moltui -p -m ascii -W 40 -H 12
+
+about:
+  homepage: https://parzival1918.github.io/moltui/
+  repository: https://github.com/Parzival1918/moltui
+  documentation: https://github.com/Parzival1918/moltui#readme
+  license: GPL-3.0-only
+  license_file: LICENSE
+  summary: High-performance 3D molecular and crystal structure viewer for the terminal
+  description: |
+    MolTUI is a fast, interactive 3D molecular and crystal structure viewer for
+    the terminal written in modern C++20. Powered by Gemmi, FTXUI, GLM, and a
+    custom software rasterizer supporting Kitty Graphics, TrueColor ANSI
+    half-blocks, and ASCII rendering modes.
+
+extra:
+  recipe-maintainers:
+    - Parzival1918
