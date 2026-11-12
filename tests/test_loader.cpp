@@ -3,6 +3,7 @@
 #include <cmath>
 #include <glm/geometric.hpp>
 #include <iostream>
+#include <set>
 
 using namespace moltui::io;
 
@@ -41,6 +42,18 @@ int main() {
         // Z=4 C2H4O2 -> 32 atoms, 7 covalent bonds per molecule = 28 bonds
         assert(st.atoms.size() == 32);
         assert(st.bonds.size() == 28);
+        assert(st.unit_cell->asym_atom_count == 8);
+        assert(!st.unit_cell->symops.empty());
+        assert(st.unit_cell->symops[0] == "x,y,z");
+        size_t asym_count = 0;
+        std::set<int> mol_ids;
+        for (const auto& a : st.atoms) {
+            if (a.symop_index == 0) ++asym_count;
+            assert(a.asym_site_index >= 0 && a.asym_site_index < 8);
+            mol_ids.insert(a.molecule_id);
+        }
+        assert(asym_count == 8);
+        assert(mol_ids.size() == 4);
         for (const auto& b : st.bonds) {
             assert(b.cell_offset == glm::ivec3(0));
             float len = glm::length(st.atoms[b.atom2].pos - st.atoms[b.atom1].pos);

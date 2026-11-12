@@ -20,6 +20,11 @@ struct Atom {
     std::string chain_id{""};
     std::string residue_name{""};
     int residue_seq{0};
+
+    // Crystallographic symmetry metadata
+    int symop_index{0};      // Index into UnitCell::symops (0 = identity / asymmetric unit)
+    int asym_site_index{-1}; // Index of originating asymmetric-unit site (-1 if unknown)
+    int molecule_id{0};      // Connected molecular fragment / component ID
     
     // Display flags
     bool selected{false};

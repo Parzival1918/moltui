@@ -58,6 +58,23 @@ std::optional<RenderShading> parse_render_shading(std::string_view name) {
     return std::nullopt;
 }
 
+std::optional<ColorMode> parse_color_mode(std::string_view name) {
+    std::string key = to_lower(trim_sv(name));
+    if (key == "element" || key == "cpk") {
+        return ColorMode::Element;
+    }
+    if (key == "symop" || key == "sym" || key == "symmetry" || key == "operation") {
+        return ColorMode::SymmetryOp;
+    }
+    if (key == "asym" || key == "site" || key == "asym-site" || key == "asymmetric") {
+        return ColorMode::AsymmetricSite;
+    }
+    if (key == "mol" || key == "molecule" || key == "fragment") {
+        return ColorMode::Molecule;
+    }
+    return std::nullopt;
+}
+
 void fit_camera_to_structure(
     const core::Structure& structure,
     Camera& camera,
@@ -70,7 +87,7 @@ void fit_camera_to_structure(
     radii.reserve(structure.atoms.size() + 8);
 
     for (const auto& atom : structure.atoms) {
-        if (!atom.visible) continue;
+        if (!Rasterizer::is_atom_displayed(structure, atom, settings)) continue;
         float r = 0.25f;
         if (settings.style == RenderStyle::SpaceFilling) {
             r = core::ElementTable::get_vdw_radius(atom.element);

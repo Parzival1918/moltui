@@ -2,6 +2,7 @@
 #include "moltui/render/framebuffer.hpp"
 #include "moltui/render/protocol.hpp"
 #include "moltui/render/rasterizer.hpp"
+#include "moltui/render/view_utils.hpp"
 #include "moltui/core/structure.hpp"
 
 #include <cassert>
@@ -250,12 +251,75 @@ void test_protocol_renderer() {
     std::cout << "PASSED\n";
 }
 
+void test_symmetry_color_and_asym() {
+    std::cout << "[Test] Symmetry Color Modes & Asymmetric Unit Filter... ";
+    assert(parse_color_mode("element") == ColorMode::Element);
+    assert(parse_color_mode("cpk") == ColorMode::Element);
+    assert(parse_color_mode("symop") == ColorMode::SymmetryOp);
+    assert(parse_color_mode("asym") == ColorMode::AsymmetricSite);
+    assert(parse_color_mode("molecule") == ColorMode::Molecule);
+    assert(!parse_color_mode("unknown").has_value());
+
+    Structure st;
+    Atom a1, a2;
+    a1.id = 0;
+    a1.element = "C";
+    a1.pos = {-1.5f, 0.0f, 0.0f};
+    a1.symop_index = 0;
+    a1.asym_site_index = 0;
+    a1.molecule_id = 0;
+
+    a2.id = 1;
+    a2.element = "C";
+    a2.pos = {1.5f, 0.0f, 0.0f};
+    a2.symop_index = 1;
+    a2.asym_site_index = 0;
+    a2.molecule_id = 1;
+
+    st.atoms = {a1, a2};
+
+    Camera cam;
+    cam.set_viewport(80, 40);
+    cam.reset({0.0f, 0.0f, 0.0f}, 3.0f);
+
+    Rasterizer rast;
+    rast.settings().show_unit_cell = false;
+    rast.settings().show_bonds = false;
+    rast.settings().color_mode = ColorMode::SymmetryOp;
+
+    assert(Rasterizer::atom_color(a1, ColorMode::SymmetryOp) !=
+           Rasterizer::atom_color(a2, ColorMode::SymmetryOp));
+    assert(Rasterizer::atom_color(a1, ColorMode::AsymmetricSite) ==
+           Rasterizer::atom_color(a2, ColorMode::AsymmetricSite));
+    assert(Rasterizer::atom_color(a1, ColorMode::Molecule) !=
+           Rasterizer::atom_color(a2, ColorMode::Molecule));
+
+    Framebuffer fb(80, 40);
+    rast.settings().asymmetric_unit_only = true;
+    assert(Rasterizer::is_atom_displayed(a1, rast.settings()));
+    assert(!Rasterizer::is_atom_displayed(a2, rast.settings()));
+    rast.render(st, cam, fb);
+
+    bool found_a1 = false;
+    bool found_a2 = false;
+    for (int y = 0; y < fb.height(); ++y) {
+        for (int x = 0; x < fb.width(); ++x) {
+            if (fb.get_atom_id(x, y) == 0) found_a1 = true;
+            if (fb.get_atom_id(x, y) == 1) found_a2 = true;
+        }
+    }
+    assert(found_a1);
+    assert(!found_a2);
+    std::cout << "PASSED\n";
+}
+
 int main() {
     test_framebuffer();
     test_rasterizer_sphere();
     test_rasterizer_cylinder_and_shading();
     test_supercell_unit_cell_rendering();
     test_protocol_renderer();
+    test_symmetry_color_and_asym();
     std::cout << "All rasterizer tests PASSED!\n";
     return 0;
 }

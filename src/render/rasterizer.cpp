@@ -109,6 +109,57 @@ void Rasterizer::render(
     }
 }
 
+glm::vec3 Rasterizer::palette_color(int index) {
+    // High-contrast, colorblind-conscious qualitative palette (0..1)
+    static constexpr std::array<glm::vec3, 16> kPalette = {{
+        {0.35f, 0.72f, 0.98f}, // Sky Blue (Identity / #1)
+        {0.96f, 0.49f, 0.34f}, // Coral Red
+        {0.36f, 0.84f, 0.56f}, // Mint Green
+        {0.98f, 0.79f, 0.28f}, // Amber Gold
+        {0.73f, 0.53f, 0.98f}, // Lavender Violet
+        {0.24f, 0.85f, 0.84f}, // Teal Cyan
+        {0.97f, 0.52f, 0.76f}, // Rose Pink
+        {0.68f, 0.87f, 0.31f}, // Lime
+        {0.99f, 0.64f, 0.22f}, // Tangerine
+        {0.47f, 0.56f, 0.99f}, // Periwinkle
+        {0.28f, 0.76f, 0.62f}, // Seafoam
+        {0.93f, 0.38f, 0.53f}, // Crimson Rose
+        {0.84f, 0.73f, 0.42f}, // Sand
+        {0.58f, 0.83f, 0.99f}, // Ice Blue
+        {0.89f, 0.58f, 0.93f}, // Orchid
+        {0.65f, 0.73f, 0.84f}  // Slate
+    }};
+    int idx = ((index % static_cast<int>(kPalette.size())) + static_cast<int>(kPalette.size())) %
+              static_cast<int>(kPalette.size());
+    return kPalette[static_cast<size_t>(idx)];
+}
+
+bool Rasterizer::is_atom_displayed(
+    const core::Structure& structure,
+    const core::Atom& atom,
+    const RasterizerSettings& settings
+) {
+    if (!atom.visible) return false;
+    if (settings.asymmetric_unit_only && structure.is_periodic()) {
+        return atom.symop_index == 0;
+    }
+    return true;
+}
+
+glm::vec3 Rasterizer::atom_color(const core::Atom& atom) const {
+    switch (settings_.color_mode) {
+        case ColorMode::SymmetryOp:
+            return palette_color(atom.symop_index);
+        case ColorMode::AsymmetricSite:
+            return palette_color(atom.asym_site_index >= 0 ? atom.asym_site_index : static_cast<int>(atom.id));
+        case ColorMode::Molecule:
+            return palette_color(atom.molecule_id);
+        case ColorMode::Element:
+        default:
+            return core::ElementTable::get_color(atom.element);
+    }
+}
+
 void Rasterizer::render_atoms(
     const core::Structure& structure,
     const Camera& camera,
@@ -126,7 +177,7 @@ void Rasterizer::render_atoms(
     items.reserve(structure.atoms.size());
 
     for (size_t i = 0; i < structure.atoms.size(); ++i) {
-        if (!structure.atoms[i].visible) continue;
+        if (!is_atom_displayed(structure, structure.atoms[i], settings_)) continue;
         glm::vec4 cam_pos = view * glm::vec4(structure.atoms[i].pos, 1.0f);
         items.push_back({i, -cam_pos.z});
     }
@@ -156,7 +207,7 @@ void Rasterizer::render_atoms(
                 break;
         }
 
-        glm::vec3 base_color = core::ElementTable::get_color(atom.element);
+        glm::vec3 base_color = atom_color(atom);
         if (atom.selected) {
             base_color = glm::mix(base_color, glm::vec3(1.0f, 0.85f, 0.1f), 0.6f);
         }
@@ -291,7 +342,12 @@ void Rasterizer::render_bonds(
         if (bond.atom1 >= structure.atoms.size() || bond.atom2 >= structure.atoms.size()) continue;
         const auto& a1 = structure.atoms[bond.atom1];
         const auto& a2 = structure.atoms[bond.atom2];
-        if (!a1.visible || !a2.visible) continue;
+        if (!is_atom_displayed(structure, a1, settings_) ||
+            !is_atom_displayed(structure, a2, settings_)) continue;
+        if (settings_.asymmetric_unit_only && structure.is_periodic() &&
+            bond.cell_offset != glm::ivec3(0)) {
+            continue;
+        }
 
         glm::vec3 p1 = a1.pos;
         glm::vec3 p2 = a2.pos;
@@ -303,8 +359,8 @@ void Rasterizer::render_bonds(
         glm::vec3 mid = 0.5f * (p1 + p2);
         glm::vec4 cam_mid = view * glm::vec4(mid, 1.0f);
 
-        glm::vec3 c1 = core::ElementTable::get_color(a1.element) * 0.85f;
-        glm::vec3 c2 = core::ElementTable::get_color(a2.element) * 0.85f;
+        glm::vec3 c1 = atom_color(a1) * 0.85f;
+        glm::vec3 c2 = atom_color(a2) * 0.85f;
         items.push_back({p1, p2, c1, c2, -cam_mid.z});
     }
 

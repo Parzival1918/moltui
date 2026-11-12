@@ -73,7 +73,18 @@ core::Structure StructureLoader::load_pdb_or_mmcif(const std::filesystem::path& 
         uc.alpha = st.cell.alpha;
         uc.beta = st.cell.beta;
         uc.gamma = st.cell.gamma;
-        uc.space_group = st.spacegroup_hm;
+        uc.space_group = st.spacegroup_hm.empty() ? "P 1" : st.spacegroup_hm;
+        if (const gemmi::SpaceGroup* sg = st.find_spacegroup()) {
+            uc.space_group_number = sg->number;
+            uc.hall_symbol = sg->hall;
+            uc.crystal_system = sg->crystal_system_str();
+            uc.point_group = sg->point_group_hm();
+            for (const auto& op : sg->operations().all_ops_sorted()) {
+                uc.symops.push_back(op.triplet());
+            }
+        } else {
+            uc.symops.push_back("x,y,z");
+        }
         uc.update_matrices();
         s.unit_cell = uc;
     }
@@ -116,9 +127,13 @@ core::Structure StructureLoader::load_pdb_or_mmcif(const std::filesystem::path& 
                         a.frac_pos = s.unit_cell->cartesian_to_fractional(a.pos);
                     }
 
+                    a.asym_site_index = static_cast<int>(a.id);
                     s.atoms.push_back(a);
                 }
             }
+        }
+        if (s.unit_cell.has_value()) {
+            s.unit_cell->asym_atom_count = s.atoms.size();
         }
     }
 
@@ -137,11 +152,7 @@ std::vector<core::Structure> StructureLoader::load_cif_small_all(const std::file
 
     for (const auto& block : doc.blocks) {
         gemmi::SmallStructure small_st = gemmi::make_small_structure_from_block(block);
-        std::vector<gemmi::SmallStructure::Site> full_sites = small_st.get_all_unit_cell_sites();
-        if (full_sites.empty()) {
-            full_sites = small_st.sites;
-        }
-        if (full_sites.empty()) {
+        if (small_st.sites.empty()) {
             continue;
         }
 
@@ -155,21 +166,77 @@ std::vector<core::Structure> StructureLoader::load_cif_small_all(const std::file
         uc.alpha = small_st.cell.alpha;
         uc.beta = small_st.cell.beta;
         uc.gamma = small_st.cell.gamma;
-        uc.space_group = small_st.spacegroup_hm;
+        uc.space_group = small_st.spacegroup_hm.empty() ? "P 1" : small_st.spacegroup_hm;
+
+        std::vector<gemmi::Op> ops;
+        ops.push_back(gemmi::Op::identity());
+        const gemmi::SpaceGroup* sg = small_st.spacegroup;
+        if (!sg && !small_st.spacegroup_hm.empty()) {
+            sg = gemmi::find_spacegroup_by_name(small_st.spacegroup_hm,
+                                                small_st.cell.alpha,
+                                                small_st.cell.gamma);
+        }
+        if (sg) {
+            if (small_st.spacegroup_hm.empty()) {
+                uc.space_group = sg->xhm();
+            }
+            uc.space_group_number = sg->number;
+            uc.hall_symbol = sg->hall;
+            uc.crystal_system = sg->crystal_system_str();
+            uc.point_group = sg->point_group_hm();
+            for (const auto& op : sg->operations().all_ops_sorted()) {
+                if (op != gemmi::Op::identity()) {
+                    ops.push_back(op);
+                }
+            }
+        } else if (!small_st.symops.empty()) {
+            for (const auto& op_str : small_st.symops) {
+                gemmi::Op op = gemmi::parse_triplet(op_str);
+                if (op != gemmi::Op::identity()) {
+                    ops.push_back(op);
+                }
+            }
+        }
+
+        uc.symops.reserve(ops.size());
+        for (const auto& op : ops) {
+            uc.symops.push_back(op.triplet());
+        }
+        uc.asym_atom_count = small_st.sites.size();
         uc.update_matrices();
         s.unit_cell = uc;
 
+        constexpr double SPECIAL_POS_TOL = 0.4;
+        std::vector<gemmi::Fractional> site_fracs;
         size_t id = 0;
-        for (const auto& site : full_sites) {
-            core::Atom a;
-            a.id = id++;
-            a.element = site.element.name();
-            a.label = site.label;
-            a.frac_pos = glm::vec3(site.fract.x, site.fract.y, site.fract.z);
-            a.pos = uc.fractional_to_cartesian(a.frac_pos);
-            a.occupancy = static_cast<float>(site.occ);
-            a.b_factor = static_cast<float>(site.u_iso * 78.9568); // U_iso to B_iso approx
-            s.atoms.push_back(a);
+        for (size_t asym_idx = 0; asym_idx < small_st.sites.size(); ++asym_idx) {
+            const auto& site = small_st.sites[asym_idx];
+            site_fracs.clear();
+            for (size_t op_idx = 0; op_idx < ops.size(); ++op_idx) {
+                auto xyz = ops[op_idx].apply_to_xyz({site.fract.x, site.fract.y, site.fract.z});
+                gemmi::Fractional fpos(xyz[0], xyz[1], xyz[2]);
+                bool duplicate = false;
+                for (const auto& prev : site_fracs) {
+                    if (small_st.cell.distance_sq(fpos, prev) < gemmi::sq(SPECIAL_POS_TOL)) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate) continue;
+                site_fracs.push_back(fpos);
+
+                core::Atom a;
+                a.id = id++;
+                a.element = site.element.name();
+                a.label = site.label;
+                a.frac_pos = glm::vec3(fpos.x, fpos.y, fpos.z);
+                a.pos = uc.fractional_to_cartesian(a.frac_pos);
+                a.occupancy = static_cast<float>(site.occ);
+                a.b_factor = static_cast<float>(site.u_iso * 78.9568); // U_iso to B_iso approx
+                a.symop_index = static_cast<int>(op_idx);
+                a.asym_site_index = static_cast<int>(asym_idx);
+                s.atoms.push_back(std::move(a));
+            }
         }
 
         s.prepare_crystal_display();
@@ -278,6 +345,10 @@ core::Structure StructureLoader::load_poscar(const std::filesystem::path& path) 
     uc.beta = beta;
     uc.gamma = gamma;
     uc.space_group = "P 1";
+    uc.space_group_number = 1;
+    uc.crystal_system = "triclinic";
+    uc.point_group = "1";
+    uc.symops = {"x,y,z"};
     uc.update_matrices();
     s.unit_cell = uc;
 
@@ -321,10 +392,12 @@ core::Structure StructureLoader::load_poscar(const std::filesystem::path& path) 
                 a.pos = glm::vec3(x, y, z) * static_cast<float>(scale);
                 a.frac_pos = uc.cartesian_to_fractional(a.pos);
             }
+            a.asym_site_index = static_cast<int>(a.id);
             s.atoms.push_back(a);
         }
     }
 
+    s.unit_cell->asym_atom_count = s.atoms.size();
     s.prepare_crystal_display();
     return s;
 }

@@ -127,7 +127,14 @@ std::string App::format_measurements() const {
         if (!a.label.empty() && a.label != a.element) ss << " (" << a.label << ")";
         ss << " | Pos: (" << a.pos.x << ", " << a.pos.y << ", " << a.pos.z << ") Å";
         if (structure_.unit_cell.has_value()) {
+            const auto& uc = *structure_.unit_cell;
             ss << " | Frac: (" << a.frac_pos.x << ", " << a.frac_pos.y << ", " << a.frac_pos.z << ")";
+            if (!uc.symops.empty() && a.symop_index >= 0 &&
+                static_cast<size_t>(a.symop_index) < uc.symops.size()) {
+                ss << " | SymOp #" << (a.symop_index + 1)
+                   << " (" << uc.symops[static_cast<size_t>(a.symop_index)] << ")";
+                if (a.symop_index == 0) ss << " [asym]";
+            }
         }
         if (a.b_factor > 0.0f) ss << " | B: " << a.b_factor;
         if (a.charge != 0.0f) ss << " | q: " << a.charge;
@@ -199,6 +206,61 @@ void App::toggle_unwrap() {
             status_message_ = "Completed periodic network boundaries.";
         }
     }
+}
+
+const char* App::color_mode_label(render::ColorMode mode) {
+    switch (mode) {
+        case render::ColorMode::SymmetryOp: return "Symmetry Op";
+        case render::ColorMode::AsymmetricSite: return "Asymmetric Site";
+        case render::ColorMode::Molecule: return "Molecule";
+        case render::ColorMode::Element:
+        default: return "Element (CPK)";
+    }
+}
+
+void App::toggle_asymmetric_unit() {
+    if (!structure_.unit_cell.has_value()) {
+        status_message_ = "Asymmetric unit view requires a periodic crystal structure.";
+        return;
+    }
+
+    auto& settings = rasterizer_.settings();
+    settings.asymmetric_unit_only = !settings.asymmetric_unit_only;
+
+    if (settings.asymmetric_unit_only) {
+        for (auto it = selected_atom_ids_.begin(); it != selected_atom_ids_.end();) {
+            if (*it < structure_.atoms.size() &&
+                !render::Rasterizer::is_atom_displayed(structure_, structure_.atoms[*it], settings)) {
+                structure_.atoms[*it].selected = false;
+                it = selected_atom_ids_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        status_message_ = "View: Asymmetric unit ONLY (SymOp #1)";
+    } else {
+        status_message_ = "View: Full unit cell";
+    }
+}
+
+void App::cycle_color_mode() {
+    auto& mode = rasterizer_.settings().color_mode;
+    switch (mode) {
+        case render::ColorMode::Element:
+            mode = render::ColorMode::SymmetryOp;
+            break;
+        case render::ColorMode::SymmetryOp:
+            mode = render::ColorMode::AsymmetricSite;
+            break;
+        case render::ColorMode::AsymmetricSite:
+            mode = render::ColorMode::Molecule;
+            break;
+        case render::ColorMode::Molecule:
+        default:
+            mode = render::ColorMode::Element;
+            break;
+    }
+    status_message_ = std::string("Color mode: ") + color_mode_label(mode);
 }
 
 void App::cycle_style() {
@@ -577,6 +639,33 @@ void App::execute_command(const std::string& cmd_line) {
         auto val = parse_bool_arg(rasterizer_.settings().show_bonds);
         rasterizer_.settings().show_bonds = val.value_or(!rasterizer_.settings().show_bonds);
         status_message_ = rasterizer_.settings().show_bonds ? "Bonds ON" : "Bonds OFF";
+    } else if (cmd == "asym" || cmd == "asymmetric") {
+        if (!structure_.unit_cell.has_value()) {
+            status_message_ = "Asymmetric unit view requires a periodic crystal structure.";
+        } else {
+            auto val = parse_bool_arg(rasterizer_.settings().asymmetric_unit_only);
+            bool target = val.value_or(!rasterizer_.settings().asymmetric_unit_only);
+            if (target != rasterizer_.settings().asymmetric_unit_only) {
+                toggle_asymmetric_unit();
+            } else {
+                status_message_ = target ? "View: Asymmetric unit ONLY (SymOp #1)" : "View: Full unit cell";
+            }
+        }
+    } else if (cmd == "color" || cmd == "colour") {
+        std::string mode;
+        if (iss >> mode) {
+            if (auto parsed = render::parse_color_mode(mode)) {
+                rasterizer_.settings().color_mode = *parsed;
+                status_message_ = std::string("Color mode: ") + color_mode_label(*parsed);
+            } else {
+                status_message_ = "Unknown color mode '" + mode + "' (use element, symop, asym, molecule).";
+            }
+        } else {
+            cycle_color_mode();
+        }
+    } else if (cmd == "sym" || cmd == "symmetry") {
+        auto val = parse_bool_arg(show_symmetry_);
+        show_symmetry_ = val.value_or(!show_symmetry_);
     } else if (cmd == "hkl") {
         std::string first;
         if (iss >> first) {
@@ -673,7 +762,7 @@ void App::run() {
             }
             return;
         }
-        if (show_help_) {
+        if (show_help_ || show_symmetry_) {
             delete_kitty();
             viewport->clear_kitty_pending();
         } else if (viewport->consume_viewport_drawn()) {
@@ -834,6 +923,11 @@ void App::run() {
         }
 
         // Hotkeys in normal mode
+        if (event == ftxui::Event::Escape && (show_help_ || show_symmetry_)) {
+            show_help_ = false;
+            show_symmetry_ = false;
+            return true;
+        }
         if (event == ftxui::Event::Character('q') || event == ftxui::Event::Escape) {
             screen.Exit();
             return true;
@@ -907,6 +1001,21 @@ void App::run() {
             status_message_ = rasterizer_.settings().show_bonds ? "Bonds ON" : "Bonds OFF";
             return true;
         }
+        if (event == ftxui::Event::Character('a')) {
+            toggle_asymmetric_unit();
+            viewport->mark_scene_dirty();
+            return true;
+        }
+        if (event == ftxui::Event::Character('C')) {
+            cycle_color_mode();
+            viewport->mark_scene_dirty();
+            return true;
+        }
+        if (event == ftxui::Event::Character('i')) {
+            show_symmetry_ = !show_symmetry_;
+            if (show_symmetry_) show_help_ = false;
+            return true;
+        }
         if (event == ftxui::Event::Character('m')) {
             for (size_t id : selected_atom_ids_) {
                 if (id < structure_.atoms.size()) structure_.atoms[id].selected = false;
@@ -918,6 +1027,7 @@ void App::run() {
         }
         if (event == ftxui::Event::Character('?') || event == ftxui::Event::F1) {
             show_help_ = !show_help_;
+            if (show_help_) show_symmetry_ = false;
             return true;
         }
         if (event == ftxui::Event::Character(']') || event == ftxui::Event::Character('n')) {
@@ -981,14 +1091,31 @@ void App::run() {
                 text("■c ") | bold | color(Color::RGB(104, 150, 244))
             }) | color(Color::RGB(160, 175, 200)));
         }
+        if (rasterizer_.settings().color_mode != render::ColorMode::Element) {
+            std::string badge = " [COLOR: ";
+            switch (rasterizer_.settings().color_mode) {
+                case render::ColorMode::SymmetryOp: badge += "SYMOP"; break;
+                case render::ColorMode::AsymmetricSite: badge += "ASYM SITE"; break;
+                case render::ColorMode::Molecule: badge += "MOL"; break;
+                default: break;
+            }
+            badge += "] ";
+            title_items.push_back(text(badge) | bold | color(Color::RGB(230, 150, 255)));
+        }
         title_items.push_back(
             text(std::string(" [") + render::ProtocolRenderer::mode_name(graphics_mode_) + "] ") | bold |
             color(Color::RGB(140, 200, 255))
         );
-        title_items.push_back(
-            text(is_unwrapped_ ? " [UNWRAPPED PBC] " : " [UNIT CELL] ") | bold |
-            color(is_unwrapped_ ? Color::RGB(80, 230, 120) : Color::RGB(240, 200, 60))
-        );
+        if (rasterizer_.settings().asymmetric_unit_only && structure_.is_periodic()) {
+            title_items.push_back(
+                text(" [ASYM UNIT] ") | bold | color(Color::RGB(110, 235, 220))
+            );
+        } else {
+            title_items.push_back(
+                text(is_unwrapped_ ? " [UNWRAPPED PBC] " : " [UNIT CELL] ") | bold |
+                color(is_unwrapped_ ? Color::RGB(80, 230, 120) : Color::RGB(240, 200, 60))
+            );
+        }
         auto title_bar = hbox(std::move(title_items)) | bgcolor(Color::RGB(20, 24, 34));
 
         // Bottom Bar / Command Bar
@@ -1003,7 +1130,7 @@ void App::run() {
             bottom_bar = hbox({
                 text(" " + status_message_ + " ") | color(Color::RGB(220, 225, 235)),
                 filler(),
-                text(" [s]tyle [f]shading [d]raft [o]rtho [u]nwrap [c]ell [?]help [q]uit ") |
+                text(" [s]tyle [C]olor [a]sym [i]sym [u]nwrap [?]help [q]uit ") |
                     color(Color::RGB(120, 140, 160))
             }) | bgcolor(Color::RGB(24, 28, 40));
         }
@@ -1013,6 +1140,127 @@ void App::run() {
             viewport->Render() | flex,
             bottom_bar
         });
+
+        if (show_symmetry_) {
+            Elements sym_lines;
+            if (structure_.unit_cell.has_value()) {
+                const auto& uc = *structure_.unit_cell;
+                std::ostringstream sg_line;
+                sg_line << "   Space Group    : " << uc.space_group << " (IT #" << uc.space_group_number << ")";
+                if (!uc.hall_symbol.empty()) sg_line << "  Hall: " << uc.hall_symbol;
+                sym_lines.push_back(text(sg_line.str()) | color(Color::RGB(190, 220, 255)));
+
+                if (!uc.crystal_system.empty() || !uc.point_group.empty()) {
+                    std::ostringstream sys_line;
+                    sys_line << "   Crystal System : " << (uc.crystal_system.empty() ? "-" : uc.crystal_system)
+                             << "   |   Point Group: " << (uc.point_group.empty() ? "-" : uc.point_group);
+                    sym_lines.push_back(text(sys_line.str()) | color(Color::RGB(190, 220, 255)));
+                }
+
+                std::ostringstream cell_line;
+                cell_line << std::fixed << std::setprecision(3)
+                          << "   Unit Cell      : a=" << uc.a << " b=" << uc.b << " c=" << uc.c << " Å  ("
+                          << std::setprecision(2)
+                          << uc.alpha << "°, " << uc.beta << "°, " << uc.gamma << "°)";
+                sym_lines.push_back(text(cell_line.str()) | color(Color::RGB(200, 215, 235)));
+
+                int max_mol = -1;
+                for (const auto& a : structure_.atoms) max_mol = std::max(max_mol, a.molecule_id);
+                std::ostringstream count_line;
+                count_line << "   Counts         : Asym unit = " << uc.asym_atom_count
+                           << " atoms  |  Structure = " << structure_.atoms.size()
+                           << " atoms  |  Molecules = " << (max_mol + 1);
+                sym_lines.push_back(text(count_line.str()) | color(Color::RGB(120, 240, 140)));
+
+                sym_lines.push_back(separator() | color(Color::RGB(60, 70, 95)));
+                sym_lines.push_back(
+                    text(std::string(" Active Color Mode: ") + color_mode_label(rasterizer_.settings().color_mode) +
+                         (rasterizer_.settings().asymmetric_unit_only ? "  [Asymmetric Unit Only]" : "")) |
+                    bold | color(Color::RGB(255, 200, 40))
+                );
+
+                auto swatch = [](int idx) {
+                    glm::vec3 c = render::Rasterizer::palette_color(idx);
+                    return text(" ■ ") | bold | color(Color::RGB(
+                        static_cast<uint8_t>(std::clamp(c.r * 255.0f, 0.0f, 255.0f)),
+                        static_cast<uint8_t>(std::clamp(c.g * 255.0f, 0.0f, 255.0f)),
+                        static_cast<uint8_t>(std::clamp(c.b * 255.0f, 0.0f, 255.0f))
+                    ));
+                };
+
+                if (rasterizer_.settings().color_mode == render::ColorMode::AsymmetricSite) {
+                    std::vector<std::string> site_labels;
+                    for (const auto& a : structure_.atoms) {
+                        int s_idx = a.asym_site_index;
+                        if (s_idx >= 0) {
+                            if (static_cast<size_t>(s_idx) >= site_labels.size()) {
+                                site_labels.resize(static_cast<size_t>(s_idx) + 1);
+                            }
+                            if (site_labels[static_cast<size_t>(s_idx)].empty()) {
+                                site_labels[static_cast<size_t>(s_idx)] = a.label + " (" + a.element + ")";
+                            }
+                        }
+                    }
+                    const size_t limit = std::min<size_t>(site_labels.size(), 12);
+                    for (size_t i = 0; i < limit; ++i) {
+                        sym_lines.push_back(hbox({
+                            swatch(static_cast<int>(i)),
+                            text("Site #" + std::to_string(i + 1) + ": " + site_labels[i]) | color(Color::RGB(210, 220, 235))
+                        }));
+                    }
+                    if (site_labels.size() > limit) {
+                        sym_lines.push_back(text("   ... +" + std::to_string(site_labels.size() - limit) + " more sites") |
+                                            color(Color::RGB(140, 155, 180)));
+                    }
+                } else if (rasterizer_.settings().color_mode == render::ColorMode::Molecule) {
+                    const int num_mols = max_mol + 1;
+                    const int limit = std::min(num_mols, 12);
+                    for (int i = 0; i < limit; ++i) {
+                        sym_lines.push_back(hbox({
+                            swatch(i),
+                            text("Molecule #" + std::to_string(i + 1)) | color(Color::RGB(210, 220, 235))
+                        }));
+                    }
+                    if (num_mols > limit) {
+                        sym_lines.push_back(text("   ... +" + std::to_string(num_mols - limit) + " more molecules") |
+                                            color(Color::RGB(140, 155, 180)));
+                    }
+                } else {
+                    const size_t limit = std::min<size_t>(uc.symops.size(), 12);
+                    for (size_t i = 0; i < limit; ++i) {
+                        std::string suffix = (i == 0) ? "  [Asymmetric Unit]" : "";
+                        sym_lines.push_back(hbox({
+                            swatch(static_cast<int>(i)),
+                            text("SymOp #" + std::to_string(i + 1) + ": " + uc.symops[i] + suffix) |
+                                color(i == 0 ? Color::RGB(140, 235, 220) : Color::RGB(210, 220, 235))
+                        }));
+                    }
+                    if (uc.symops.size() > limit) {
+                        sym_lines.push_back(text("   ... +" + std::to_string(uc.symops.size() - limit) + " more operations") |
+                                            color(Color::RGB(140, 155, 180)));
+                    }
+                }
+            } else {
+                int max_mol = -1;
+                for (const auto& a : structure_.atoms) max_mol = std::max(max_mol, a.molecule_id);
+                sym_lines.push_back(text("   Non-periodic structure (no crystal symmetry).") | color(Color::RGB(200, 215, 235)));
+                sym_lines.push_back(text("   Atoms: " + std::to_string(structure_.atoms.size()) +
+                                         "  |  Molecules: " + std::to_string(max_mol + 1)) |
+                                    color(Color::RGB(120, 240, 140)));
+            }
+            sym_lines.push_back(separator() | color(Color::RGB(60, 70, 95)));
+            sym_lines.push_back(text(" Press [i] or [Esc] to close  |  [a] asymmetric unit  |  [C] cycle color mode ") |
+                                color(Color::RGB(150, 170, 200)));
+
+            auto sym_box = clear_under(
+                window(
+                    text(" Crystal Symmetry & Color Legend ") | bold | color(Color::White),
+                    vbox(std::move(sym_lines)) | bgcolor(Color::RGB(20, 24, 36))
+                ) | bgcolor(Color::RGB(20, 24, 36)) | color(Color::RGB(120, 150, 195))
+            ) | center;
+
+            return dbox({layout, sym_box});
+        }
 
         if (show_help_) {
             auto help_box = clear_under(
@@ -1032,13 +1280,14 @@ void App::run() {
                         text("   1 / 2 / 3            : View along lattice a / b / c (or x/y/z)") | color(Color::RGB(240, 220, 120)),
                         text("   + / -                : Zoom in / out") | color(Color::RGB(240, 220, 120)),
                         text("   s / f / d / o        : Style / flat shading / draft motion / ortho") | color(Color::RGB(200, 215, 235)),
+                        text("   C / a / i            : Cycle color mode / asymmetric unit / symmetry info") | color(Color::RGB(120, 240, 140)),
                         text("   u                    : Toggle PBC unwrapping (Make Whole)") | color(Color::RGB(120, 240, 140)),
                         text("   c / b                : Toggle unit cell / bonds") | color(Color::RGB(200, 215, 235)),
                         text("   m                    : Clear active measurements") | color(Color::RGB(200, 215, 235)),
                         text("   r                    : Reset camera view") | color(Color::RGB(200, 215, 235)),
                         text("   Space / [ / ] / n/p  : Play/pause, prev/next frame or structure") | color(Color::RGB(200, 215, 235)),
-                        text("   :                    : Commands (Up/Down history: :view, :x/:a, :style,") | color(Color::RGB(255, 180, 100)),
-                        text("                          :shading, :mode, :bonds, :unitcell, :cell, :hkl, :q)") | color(Color::RGB(255, 180, 100)),
+                        text("   :                    : Commands (:view, :x/:a, :style, :shading, :mode,") | color(Color::RGB(255, 180, 100)),
+                        text("                          :color, :asym, :sym, :bonds, :cell, :hkl, :q)") | color(Color::RGB(255, 180, 100)),
                         text("   ?                    : Toggle this help") | color(Color::RGB(200, 215, 235)),
                         text("   q / Esc              : Quit") | color(Color::RGB(255, 110, 110)),
                     }) | bgcolor(Color::RGB(20, 24, 36))

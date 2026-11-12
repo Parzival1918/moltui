@@ -44,6 +44,14 @@ int main(int argc, char** argv) {
     app.add_flag("--unitcell,!--no-cell,!--no-unitcell", show_unit_cell,
                  "Show/hide unit cell box and axes (default: on)");
 
+    std::string color_mode = "element";
+    app.add_option("--color", color_mode,
+                   "Coloring mode: element, symop, asym, molecule");
+
+    bool asym_only = false;
+    app.add_flag("--asym,--asymmetric-unit", asym_only,
+                 "Show only the crystallographic asymmetric unit");
+
     std::vector<int> hkl_plane;
     app.add_option("--hkl", hkl_plane, "Display Miller plane (e.g. --hkl 1 1 1)")
        ->expected(3)
@@ -157,6 +165,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    auto parsed_color = moltui::render::parse_color_mode(color_mode);
+    if (!parsed_color.has_value()) {
+        std::cerr << "MolTUI Error: Unknown color mode '" << color_mode
+                  << "'. Valid options: element, symop, asym, molecule\n";
+        return 1;
+    }
+
     std::optional<size_t> frame_index_1based;
     if (!frame_spec.empty()) {
         std::string f_low = frame_spec;
@@ -185,6 +200,8 @@ int main(int argc, char** argv) {
         rast.settings().depth_cue = depth_cue;
         rast.settings().show_bonds = show_bonds;
         rast.settings().show_unit_cell = show_unit_cell;
+        rast.settings().color_mode = *parsed_color;
+        rast.settings().asymmetric_unit_only = asym_only;
         if (hkl_plane.size() == 3) {
             rast.settings().miller_plane = glm::ivec3(hkl_plane[0], hkl_plane[1], hkl_plane[2]);
         }

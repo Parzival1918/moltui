@@ -124,6 +124,8 @@ moltui [OPTIONS] [files...]
 | `--depth-cue` / `--no-depth-cue` | Toggle aerial-perspective depth fading (default: on) |
 | `--bonds` / `--no-bonds` | Show or hide bonds (default: on) |
 | `--unitcell` / `--no-cell` / `--no-unitcell` | Show or hide unit cell box and axes (default: on) |
+| `--color <mode>` | Coloring mode: `element`, `symop`, `asym`, `molecule` |
+| `--asym`, `--asymmetric-unit` | Show only the crystallographic asymmetric unit |
 | `--hkl <h> <k> <l>` | Display Miller lattice plane `(h k l)` |
 | `-u, --unwrap` | Unwrap molecules across periodic boundaries (Make Whole) |
 | `-w, --wrap` | Wrap coordinates back into the primary `[0, 1)` unit cell |
@@ -178,6 +180,9 @@ moltui [OPTIONS] [files...]
 | `o` | Toggle projection (`Orthographic` $\leftrightarrow$ `Perspective`) |
 | `d` | Toggle adaptive draft quality while moving |
 | `u` | Toggle periodic boundary unwrapping (**Make Whole**) |
+| `C` | Cycle coloring mode (`Element` $\to$ `SymOp` $\to$ `Asym Site` $\to$ `Molecule`) |
+| `a` | Toggle asymmetric unit view (`symop_index == 0`) |
+| `i` | Toggle Crystal Symmetry & Color Legend overlay |
 | `c` | Toggle unit cell box and axis arrows |
 | `b` | Toggle bonds |
 | `m` | Clear active atom measurements |
@@ -209,6 +214,9 @@ All interactive actions and settings are also available through the `:` command 
 | `:mode [auto\|kitty\|half-blocks\|ascii]` | Switch or query terminal graphics protocol (alias `:render`) |
 | `:draft [on\|off]` | Toggle or set adaptive draft quality (alias `:adaptive`) |
 | `:unitcell [on\|off]` / `:bonds [on\|off]` | Toggle or set unit cell or bond visibility |
+| `:color [element\|cpk\|symop\|asym\|molecule]` | Set or cycle atom/bond coloring mode |
+| `:asym [on\|off]` | Toggle or set asymmetric unit only display |
+| `:sym [on\|off]` / `:symmetry [on\|off]` | Toggle Crystal Symmetry & Color Legend overlay |
 | `:frame <n>` / `:next` / `:prev` / `:play` / `:pause` | Navigate or play multi-structure/trajectory ensembles |
 | `:select <id...>` / `:measure <id...>` | Select up to four 1-based atom IDs for measurement |
 | `:clear` | Clear atom selections and Miller plane |

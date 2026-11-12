@@ -135,6 +135,42 @@ glm::vec3 Structure::center_of_mass() const {
 
 void Structure::compute_bonds(float tolerance, bool use_pbc) {
     bonds = BondPerceiver::compute_bonds(atoms, unit_cell, tolerance, use_pbc);
+    compute_molecule_ids();
+}
+
+void Structure::compute_molecule_ids() {
+    const size_t n = atoms.size();
+    if (n == 0) return;
+
+    std::vector<std::vector<size_t>> adj(n);
+    for (const auto& b : bonds) {
+        if (b.atom1 < n && b.atom2 < n) {
+            adj[b.atom1].push_back(b.atom2);
+            adj[b.atom2].push_back(b.atom1);
+        }
+    }
+
+    std::vector<bool> visited(n, false);
+    int mol_id = 0;
+    std::vector<size_t> queue;
+    for (size_t i = 0; i < n; ++i) {
+        if (visited[i]) continue;
+        visited[i] = true;
+        queue.clear();
+        queue.push_back(i);
+        size_t head = 0;
+        while (head < queue.size()) {
+            size_t u = queue[head++];
+            atoms[u].molecule_id = mol_id;
+            for (size_t v : adj[u]) {
+                if (!visited[v]) {
+                    visited[v] = true;
+                    queue.push_back(v);
+                }
+            }
+        }
+        ++mol_id;
+    }
 }
 
 bool Structure::prepare_crystal_display() {
@@ -148,23 +184,27 @@ bool Structure::prepare_crystal_display() {
     if (PbcUnwrapper::bonding_percolates(*this)) {
         is_molecular_crystal = false;
         PbcUnwrapper::complete_network_boundaries(*this);
+        compute_molecule_ids();
         bounds_dirty = true;
         return false;
     }
 
     is_molecular_crystal = true;
     PbcUnwrapper::unwrap(*this);
+    compute_molecule_ids();
     bounds_dirty = true;
     return true;
 }
 
 void Structure::unwrap_pbc() {
     PbcUnwrapper::unwrap(*this);
+    compute_molecule_ids();
     bounds_dirty = true;
 }
 
 void Structure::wrap_pbc() {
     PbcUnwrapper::wrap_to_unit_cell(*this);
+    compute_molecule_ids();
     bounds_dirty = true;
 }
 

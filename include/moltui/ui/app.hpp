@@ -55,6 +55,7 @@ private:
     std::vector<size_t> selected_atom_ids_;
     bool is_unwrapped_{false};
     bool show_help_{false};
+    bool show_symmetry_{false};
     bool command_mode_{false};
     bool quit_requested_{false};
     bool refit_requested_{false};
@@ -79,8 +80,11 @@ private:
     void on_atom_picked(int atom_id);
     void execute_command(const std::string& cmd);
     void toggle_unwrap();
+    void toggle_asymmetric_unit();
+    void cycle_color_mode();
     void cycle_style();
     void toggle_shading();
+    static const char* color_mode_label(render::ColorMode mode);
     void step_ensemble(int delta);
     bool aim_along(std::string_view expr);
     void aim_axis_shortcut(char key);

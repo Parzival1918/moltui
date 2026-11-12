@@ -301,6 +301,9 @@ cmake --build build --parallel && cmake --install build --prefix ~/.local</pre>
                             <tr data-cat="keys"><td>Key</td><td><code>o</code></td><td>Toggle projection (<code>Orthographic</code> ↔ <code>Perspective</code>)</td></tr>
                             <tr data-cat="keys"><td>Key</td><td><code>d</code></td><td>Toggle adaptive draft quality while moving</td></tr>
                             <tr data-cat="keys"><td>Key</td><td><code>u</code></td><td>Toggle periodic boundary unwrapping (Make Whole)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>C</code></td><td>Cycle coloring mode (<code>Element</code> → <code>SymOp</code> → <code>Asym Site</code> → <code>Molecule</code>)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>a</code></td><td>Toggle asymmetric unit view (<code>symop_index == 0</code>)</td></tr>
+                            <tr data-cat="keys"><td>Key</td><td><code>i</code></td><td>Toggle Crystal Symmetry &amp; Color Legend overlay</td></tr>
                             <tr data-cat="keys"><td>Key</td><td><code>c</code></td><td>Toggle unit cell box and axis arrows</td></tr>
                             <tr data-cat="keys"><td>Key</td><td><code>b</code></td><td>Toggle bonds</td></tr>
                             <tr data-cat="keys"><td>Key</td><td><code>m</code></td><td>Clear active atom measurements</td></tr>
@@ -328,6 +331,9 @@ cmake --build build --parallel && cmake --install build --prefix ~/.local</pre>
                             <tr data-cat="commands"><td>Command</td><td><code>:mode [auto|kitty|half-blocks|ascii]</code></td><td>Switch or query terminal graphics protocol (alias <code>:render</code>)</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:draft [on|off]</code></td><td>Toggle or set adaptive draft quality (alias <code>:adaptive</code>)</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:unitcell [on|off]</code> / <code>:bonds [on|off]</code></td><td>Toggle or set unit cell or bond visibility</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:color [element|cpk|symop|asym|molecule]</code></td><td>Set or cycle atom/bond coloring mode</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:asym [on|off]</code></td><td>Toggle or set asymmetric unit only display</td></tr>
+                            <tr data-cat="commands"><td>Command</td><td><code>:sym [on|off]</code> / <code>:symmetry [on|off]</code></td><td>Toggle Crystal Symmetry &amp; Color Legend overlay</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:frame &lt;n&gt;</code> / <code>:next</code> / <code>:prev</code> / <code>:play</code> / <code>:pause</code></td><td>Navigate or play multi-structure/trajectory ensembles</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:select &lt;id...&gt;</code> / <code>:measure &lt;id...&gt;</code></td><td>Select up to four 1-based atom IDs for measurement</td></tr>
                             <tr data-cat="commands"><td>Command</td><td><code>:clear</code></td><td>Clear atom selections and Miller plane</td></tr>
@@ -341,6 +347,8 @@ cmake --build build --parallel && cmake --install build --prefix ~/.local</pre>
                             <tr data-cat="cli"><td>CLI</td><td><code>--depth-cue</code> / <code>--no-depth-cue</code></td><td>Aerial-perspective depth fading (default: on)</td></tr>
                             <tr data-cat="cli"><td>CLI</td><td><code>--bonds</code> / <code>--no-bonds</code></td><td>Show or hide bonds (default: on)</td></tr>
                             <tr data-cat="cli"><td>CLI</td><td><code>--unitcell</code> / <code>--no-cell</code> / <code>--no-unitcell</code></td><td>Show or hide unit cell box and axes (default: on)</td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--color &lt;mode&gt;</code></td><td>Coloring mode: <code>element</code>, <code>symop</code>, <code>asym</code>, <code>molecule</code></td></tr>
+                            <tr data-cat="cli"><td>CLI</td><td><code>--asym</code> / <code>--asymmetric-unit</code></td><td>Show only the crystallographic asymmetric unit</td></tr>
                             <tr data-cat="cli"><td>CLI</td><td><code>--hkl &lt;h&gt; &lt;k&gt; &lt;l&gt;</code></td><td>Display Miller lattice plane <code>(h k l)</code></td></tr>
                             <tr data-cat="cli"><td>CLI</td><td><code>-u, --unwrap</code></td><td>Unwrap molecules across periodic boundary conditions (Make Whole)</td></tr>
                             <tr data-cat="cli"><td>CLI</td><td><code>-w, --wrap</code></td><td>Wrap coordinates back into the primary <code>[0, 1)</code> unit cell</td></tr>

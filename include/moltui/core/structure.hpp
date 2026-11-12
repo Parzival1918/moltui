@@ -19,6 +19,11 @@ struct UnitCell {
     
     std::string space_group{"P 1"};
     int space_group_number{1};
+    std::string hall_symbol;
+    std::string crystal_system;
+    std::string point_group;
+    std::vector<std::string> symops;
+    size_t asym_atom_count{0};
     glm::ivec3 subcell_repeats{1, 1, 1};
     
     glm::mat3 orth_matrix{1.0f};  // Fractional to Cartesian
@@ -58,6 +63,7 @@ public:
 
     // Bonding heuristics
     void compute_bonds(float tolerance = 0.28f, bool use_pbc = true);
+    void compute_molecule_ids();
 
     // Periodic Boundary Operations
     bool is_periodic() const { return unit_cell.has_value(); }

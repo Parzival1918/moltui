@@ -19,9 +19,18 @@ enum class RenderShading {
     Flat   // Rim-darkened flat shading
 };
 
+enum class ColorMode {
+    Element,        // CPK element colors
+    SymmetryOp,     // Color by crystallographic symmetry operation
+    AsymmetricSite, // Color by unique asymmetric-unit site
+    Molecule        // Color by connected molecular fragment
+};
+
 struct RasterizerSettings {
     RenderStyle style{RenderStyle::BallAndStick};
     RenderShading shading{RenderShading::Lit};
+    ColorMode color_mode{ColorMode::Element};
+    bool asymmetric_unit_only{false};
     bool depth_cue{true};
     bool show_unit_cell{true};
     bool show_bonds{true};
@@ -44,6 +53,10 @@ public:
 
     RasterizerSettings& settings() { return settings_; }
     const RasterizerSettings& settings() const { return settings_; }
+
+    static glm::vec3 palette_color(int index);
+    static bool is_atom_displayed(const core::Structure& structure, const core::Atom& atom, const RasterizerSettings& settings);
+    glm::vec3 atom_color(const core::Atom& atom) const;
 
 private:
     RasterizerSettings settings_;

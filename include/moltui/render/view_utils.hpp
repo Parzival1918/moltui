@@ -11,6 +11,7 @@ namespace moltui::render {
 
 std::optional<RenderStyle> parse_render_style(std::string_view name);
 std::optional<RenderShading> parse_render_shading(std::string_view name);
+std::optional<ColorMode> parse_color_mode(std::string_view name);
 
 // Computes tight framing for the structure in the current camera orientation.
 void fit_camera_to_structure(
